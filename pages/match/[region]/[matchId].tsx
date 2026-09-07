@@ -1,8 +1,6 @@
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
-import { getMatchDetail, RiotApiError, PLATFORMS, Platform, SUMMONER_SPELLS, RUNE_STYLES } from '@/lib/riot';
-
-const DDRAGON_VERSION = '14.16.1';
+import { getMatchDetail, getLatestDdragonVersion, RiotApiError, PLATFORMS, Platform, SUMMONER_SPELLS, RUNE_STYLES } from '@/lib/riot';
 
 interface ParticipantView {
   puuid: string;
@@ -31,6 +29,7 @@ interface Props {
   gameDuration?: number;
   highlightPuuid?: string | null;
   participants?: ParticipantView[];
+  ddragonVersion?: string;
 }
 
 const QUEUE_NAMES: Record<number, string> = {
@@ -80,6 +79,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
 
   try {
     const match = await getMatchDetail(matchId, region as Platform);
+    const ddragonVersion = await getLatestDdragonVersion();
     const participants: ParticipantView[] = match.info.participants.map((p: any) => ({
       puuid: p.puuid,
       riotName: p.riotIdGameName ? `${p.riotIdGameName}#${p.riotIdTagline}` : p.summonerName || '알 수 없음',
@@ -107,6 +107,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
         gameDuration: match.info.gameDuration,
         highlightPuuid: typeof puuid === 'string' ? puuid : null,
         participants,
+        ddragonVersion,
       },
     };
   } catch (err) {
@@ -119,8 +120,8 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
 };
 
 function TeamBlock({
-  team, highlightPuuid, gameDuration, maxDamage,
-}: { team: ParticipantView[]; highlightPuuid?: string | null; gameDuration: number; maxDamage: number }) {
+  team, highlightPuuid, gameDuration, maxDamage, ddragonVersion,
+}: { team: ParticipantView[]; highlightPuuid?: string | null; gameDuration: number; maxDamage: number; ddragonVersion: string }) {
   const win = team[0]?.win;
   return (
     <div className="team-block">
@@ -133,7 +134,7 @@ function TeamBlock({
             <div className="champ-cluster">
               <img
                 className="champion-icon"
-                src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/champion/${p.championName}.png`}
+                src={`https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/champion/${p.championName}.png`}
                 alt={p.championName}
               />
               <div className="spell-rune-col">
@@ -143,7 +144,7 @@ function TeamBlock({
                       <img
                         key={i}
                         className="spell-icon"
-                        src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/spell/${SUMMONER_SPELLS[sid]}`}
+                        src={`https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/spell/${SUMMONER_SPELLS[sid]}`}
                         alt=""
                         onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }}
                       />
@@ -181,7 +182,7 @@ function TeamBlock({
                   <img
                     key={i}
                     className="item-slot"
-                    src={`https://ddragon.leagueoflegends.com/cdn/${DDRAGON_VERSION}/img/item/${itemId}.png`}
+                    src={`https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/item/${itemId}.png`}
                     alt=""
                   />
                 ) : (
@@ -225,8 +226,8 @@ export default function MatchDetailPage(props: Props) {
         </div>
       </div>
 
-      <TeamBlock team={team1} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} />
-      <TeamBlock team={team2} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} />
+      <TeamBlock team={team1} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} ddragonVersion={props.ddragonVersion ?? ''} />
+      <TeamBlock team={team2} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} ddragonVersion={props.ddragonVersion ?? ''} />
     </div>
   );
 }

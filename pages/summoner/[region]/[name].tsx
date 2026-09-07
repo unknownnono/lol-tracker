@@ -3,6 +3,7 @@ import type { GetServerSideProps } from 'next';
 import Link from 'next/link';
 import {
   getFullSummonerProfile,
+  getLatestDdragonVersion,
   RiotApiError,
   PLATFORMS,
   Platform,
@@ -45,6 +46,7 @@ interface Props {
   leagueEntries?: LeagueEntry[];
   matches?: MatchSummary[];
   activeGame?: ActiveGameView | null;
+  ddragonVersion?: string;
 }
 
 const QUEUE_NAMES: Record<number, string> = {
@@ -118,6 +120,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
 
   try {
     const profile = await getFullSummonerProfile(gameName, tagLine, region as Platform);
+    const ddragonVersion = await getLatestDdragonVersion();
     return {
       props: {
         gameName: profile.account.gameName,
@@ -131,6 +134,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
         activeGame: profile.activeGame
           ? { gameMode: profile.activeGame.gameMode, gameQueueConfigId: profile.activeGame.gameQueueConfigId }
           : null,
+        ddragonVersion,
       },
     };
   } catch (err) {
@@ -224,7 +228,7 @@ export default function SummonerPage(props: Props) {
         <div className="profile-icon-wrap">
           <img
             className="profile-icon"
-            src={`https://ddragon.leagueoflegends.com/cdn/14.16.1/img/profileicon/${props.profileIconId}.png`}
+            src={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/profileicon/${props.profileIconId}.png`}
             width={76} height={76} alt="프로필 아이콘"
           />
           <span className="level-badge">Lv. {props.summonerLevel}</span>
@@ -285,7 +289,7 @@ export default function SummonerPage(props: Props) {
               </div>
               <img
                 className="champion-icon"
-                src={`https://ddragon.leagueoflegends.com/cdn/14.16.1/img/champion/${m.championName}.png`}
+                src={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/champion/${m.championName}.png`}
                 alt={m.championName}
               />
               <div className="match-champion">{m.championName}</div>
@@ -308,7 +312,7 @@ export default function SummonerPage(props: Props) {
               <div key={c.championName} className="champion-stat-row">
                 <img
                   className="champion-icon"
-                  src={`https://ddragon.leagueoflegends.com/cdn/14.16.1/img/champion/${c.championName}.png`}
+                  src={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/champion/${c.championName}.png`}
                   alt={c.championName}
                 />
                 <div className="champion-stat-name">{c.championName}</div>

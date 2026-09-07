@@ -121,6 +121,21 @@ export const RUNE_STYLES: Record<number, string> = {
   8400: '7204_resolve.png', // 결의
 };
 
+// Data Dragon(챔피언/아이템/프로필 아이콘 이미지)의 최신 버전을 가져옵니다.
+// 이미지 경로에 버전을 고정하면 시간이 지나 그 버전이 CDN에서 정리됐을 때 아이콘이 전부 깨지므로,
+// 항상 최신 버전을 조회해서 사용합니다 (6시간 캐싱).
+export async function getLatestDdragonVersion(): Promise<string> {
+  const cacheKey = 'ddragon-version';
+  const hit = cache.get(cacheKey);
+  if (hit && hit.expires > Date.now()) return hit.data as string;
+
+  const res = await fetch('https://ddragon.leagueoflegends.com/api/versions.json');
+  const versions: string[] = await res.json();
+  const latest = versions[0];
+  cache.set(cacheKey, { data: latest, expires: Date.now() + 6 * 60 * 60 * 1000 });
+  return latest;
+}
+
 export async function getAccountByRiotId(gameName: string, tagLine: string, platform: Platform) {
   const regional = regionalOf(platform);
   const url = `https://${regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
