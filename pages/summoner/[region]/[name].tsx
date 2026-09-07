@@ -4,6 +4,8 @@ import Link from 'next/link';
 import {
   getFullSummonerProfile,
   getLatestDdragonVersion,
+  getTopChampionMastery,
+  getChampionIdNameMap,
   RiotApiError,
   PLATFORMS,
   Platform,
@@ -19,6 +21,7 @@ interface MatchSummary {
   gameDuration: number;
   gameCreation: number;
   queueId: number;
+  teamPosition: string;
 }
 
 interface LeagueEntry {
@@ -35,6 +38,12 @@ interface ActiveGameView {
   gameQueueConfigId: number;
 }
 
+interface MasteryEntry {
+  championName: string;
+  championLevel: number;
+  championPoints: number;
+}
+
 interface Props {
   error?: string;
   gameName?: string;
@@ -47,7 +56,16 @@ interface Props {
   matches?: MatchSummary[];
   activeGame?: ActiveGameView | null;
   ddragonVersion?: string;
+  masteries?: MasteryEntry[];
 }
+
+const POSITION_LABELS: Record<string, string> = {
+  TOP: '탑',
+  JUNGLE: '정글',
+  MIDDLE: '미드',
+  BOTTOM: '원딜',
+  UTILITY: '서폿',
+};
 
 const QUEUE_NAMES: Record<number, string> = {
   420: '솔로랭크',
@@ -121,6 +139,16 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   try {
     const profile = await getFullSummonerProfile(gameName, tagLine, region as Platform);
     const ddragonVersion = await getLatestDdragonVersion();
+    const [rawMasteries, championMap] = await Promise.all([
+      getTopChampionMastery(profile.account.puuid, region as Platform, 5),
+      getChampionIdNameMap(ddragonVersion),
+    ]);
+    const masteries: MasteryEntry[] = rawMasteries.map((m) => ({
+      championName: championMap[m.championId] ?? 'Unknown',
+      championLevel: m.championLevel,
+      championPoints: m.championPoints,
+    }));
+
     return {
       props: {
         gameName: profile.account.gameName,
@@ -135,6 +163,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
           ? { gameMode: profile.activeGame.gameMode, gameQueueConfigId: profile.activeGame.gameQueueConfigId }
           : null,
         ddragonVersion,
+        masteries,
       },
     };
   } catch (err) {
@@ -147,7 +176,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
 };
 
 export default function SummonerPage(props: Props) {
-  const [tab, setTab] = useState<'matches' | 'champions'>('matches');
+  const [tab, setTab] = useState<'matches' | 'champions' | 'mastery'>('matches');
   const [isFavorite, setIsFavorite] = useState(false);
 
   const favoriteKey = props.platform && props.gameName && props.tagLine
@@ -273,9 +302,10 @@ export default function SummonerPage(props: Props) {
       <div className="tab-row">
         <button className={`tab-btn ${tab === 'matches' ? 'active' : ''}`} onClick={() => setTab('matches')}>최근 전적</button>
         <button className={`tab-btn ${tab === 'champions' ? 'active' : ''}`} onClick={() => setTab('champions')}>챔피언 통계</button>
+        <button className={`tab-btn ${tab === 'mastery' ? 'active' : ''}`} onClick={() => setTab('mastery')}>마스터리</button>
       </div>
 
-      {tab === 'matches' ? (
+      {tab === 'matches' && (
         <div className="match-list">
           {props.matches?.map((m) => (
             <Link
@@ -287,6 +317,9 @@ export default function SummonerPage(props: Props) {
                 <div className="queue">{QUEUE_NAMES[m.queueId] ?? `기타(${m.queueId})`}</div>
                 <div className="time">{formatRelativeTime(m.gameCreation)}</div>
               </div>
+              {POSITION_LABELS[m.teamPosition] && (
+                <span className="position-badge">{POSITION_LABELS[m.teamPosition]}</span>
+              )}
               <img
                 className="champion-icon"
                 src={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/champion/${m.championName}.png`}
@@ -300,7 +333,9 @@ export default function SummonerPage(props: Props) {
             </Link>
           ))}
         </div>
-      ) : (
+      )}
+
+      {tab === 'champions' && (
         <div className="champion-stat-list">
           <div className="champion-stat-note">최근 {recentTotal}경기 기준 집계입니다.</div>
           {championStats.map((c) => {
@@ -322,6 +357,24 @@ export default function SummonerPage(props: Props) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === 'mastery' && (
+        <div className="champion-stat-list">
+          <div className="champion-stat-note">숙련도가 가장 높은 챔피언 5개입니다.</div>
+          {props.masteries?.map((m) => (
+            <div key={m.championName} className="champion-stat-row">
+              <img
+                className="champion-icon"
+                src={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/champion/${m.championName}.png`}
+                alt={m.championName}
+              />
+              <div className="champion-stat-name">{m.championName}</div>
+              <div className="mastery-level">M{m.championLevel}</div>
+              <div className="stat-dim">{m.championPoints.toLocaleString()} pts</div>
+            </div>
+          ))}
         </div>
       )}
     </div>

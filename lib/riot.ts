@@ -136,6 +136,40 @@ export async function getLatestDdragonVersion(): Promise<string> {
   return latest;
 }
 
+export interface ChampionMastery {
+  championId: number;
+  championLevel: number;
+  championPoints: number;
+}
+
+export async function getTopChampionMastery(puuid: string, platform: Platform, count = 5) {
+  const url = `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/top?count=${count}`;
+  return riotFetch<ChampionMastery[]>(url, 10 * 60 * 1000);
+}
+
+// 챔피언 ID(숫자) -> 챔피언 이름(이미지 파일명과 동일) 매핑을 만듭니다. 챔피언 목록은 패치마다 거의 안 바뀌므로 오래 캐싱합니다.
+export async function getChampionIdNameMap(version: string): Promise<Record<number, string>> {
+  const cacheKey = `champion-map-${version}`;
+  const hit = cache.get(cacheKey);
+  if (hit) return hit.data as Record<number, string>;
+
+  const res = await fetch(`https://ddragon.leagueoflegends.com/cdn/${version}/data/en_US/champion.json`);
+  const json = await res.json();
+  const map: Record<number, string> = {};
+  for (const champ of Object.values<any>(json.data)) {
+    map[Number(champ.key)] = champ.id;
+  }
+  cache.set(cacheKey, { data: map, expires: Date.now() + 24 * 60 * 60 * 1000 });
+  return map;
+}
+
+export async function getMatchTimeline(matchId: string, platform: Platform) {
+  const regional = regionalOf(platform);
+  const url = `https://${regional}.api.riotgames.com/lol/match/v5/matches/${matchId}/timeline`;
+  // 매치 상세와 마찬가지로 끝난 경기의 타임라인은 바뀌지 않으니 하루 캐싱합니다.
+  return riotFetch<any>(url, 24 * 60 * 60 * 1000);
+}
+
 export async function getAccountByRiotId(gameName: string, tagLine: string, platform: Platform) {
   const regional = regionalOf(platform);
   const url = `https://${regional}.api.riotgames.com/riot/account/v1/accounts/by-riot-id/${encodeURIComponent(gameName)}/${encodeURIComponent(tagLine)}`;
@@ -199,6 +233,7 @@ export async function getFullSummonerProfile(gameName: string, tagLine: string, 
       gameDuration: m.info.gameDuration,
       gameCreation: m.info.gameCreation,
       queueId: m.info.queueId,
+      teamPosition: participant.teamPosition || '',
     };
   });
 

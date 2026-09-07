@@ -1,16 +1,28 @@
 import { useRouter } from 'next/router';
 import type { GetServerSideProps } from 'next';
-import { getMatchDetail, getLatestDdragonVersion, RiotApiError, PLATFORMS, Platform, SUMMONER_SPELLS, RUNE_STYLES } from '@/lib/riot';
+import {
+  getMatchDetail,
+  getMatchTimeline,
+  getLatestDdragonVersion,
+  RiotApiError,
+  PLATFORMS,
+  Platform,
+  SUMMONER_SPELLS,
+  RUNE_STYLES,
+} from '@/lib/riot';
 
 interface ParticipantView {
   puuid: string;
+  participantId: number;
   riotName: string;
   championName: string;
   teamId: number;
+  teamPosition: string;
   win: boolean;
   kills: number;
   deaths: number;
   assists: number;
+  kp: number;
   cs: number;
   goldEarned: number;
   damage: number;
@@ -19,6 +31,11 @@ interface ParticipantView {
   summoner2Id: number;
   primaryStyle: number;
   subStyle: number;
+}
+
+interface GoldFrame {
+  minute: number;
+  diff: number;
 }
 
 interface Props {
@@ -30,10 +47,15 @@ interface Props {
   highlightPuuid?: string | null;
   participants?: ParticipantView[];
   ddragonVersion?: string;
+  goldFrames?: GoldFrame[];
 }
 
 const QUEUE_NAMES: Record<number, string> = {
   420: '솔로랭크', 440: '자유랭크', 450: '칼바람나락', 400: '일반(무작위)', 430: '일반(협동전)',
+};
+
+const POSITION_LABELS: Record<string, string> = {
+  TOP: '탑', JUNGLE: '정글', MIDDLE: '미드', BOTTOM: '원딜', UTILITY: '서폿',
 };
 
 function formatDuration(seconds: number) {
@@ -80,24 +102,54 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
   try {
     const match = await getMatchDetail(matchId, region as Platform);
     const ddragonVersion = await getLatestDdragonVersion();
-    const participants: ParticipantView[] = match.info.participants.map((p: any) => ({
-      puuid: p.puuid,
-      riotName: p.riotIdGameName ? `${p.riotIdGameName}#${p.riotIdTagline}` : p.summonerName || '알 수 없음',
-      championName: p.championName,
-      teamId: p.teamId,
-      win: p.win,
-      kills: p.kills,
-      deaths: p.deaths,
-      assists: p.assists,
-      cs: (p.totalMinionsKilled || 0) + (p.neutralMinionsKilled || 0),
-      goldEarned: p.goldEarned,
-      damage: p.totalDamageDealtToChampions || 0,
-      items: [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6],
-      summoner1Id: p.summoner1Id,
-      summoner2Id: p.summoner2Id,
-      primaryStyle: p.perks?.styles?.[0]?.style ?? 0,
-      subStyle: p.perks?.styles?.[1]?.style ?? 0,
-    }));
+
+    const rawParticipants = match.info.participants;
+    const team100Kills = rawParticipants.filter((p: any) => p.teamId === 100).reduce((s: number, p: any) => s + p.kills, 0);
+    const team200Kills = rawParticipants.filter((p: any) => p.teamId === 200).reduce((s: number, p: any) => s + p.kills, 0);
+
+    const participants: ParticipantView[] = rawParticipants.map((p: any) => {
+      const teamKills = p.teamId === 100 ? team100Kills : team200Kills;
+      return {
+        puuid: p.puuid,
+        participantId: p.participantId,
+        riotName: p.riotIdGameName ? `${p.riotIdGameName}#${p.riotIdTagline}` : p.summonerName || '알 수 없음',
+        championName: p.championName,
+        teamId: p.teamId,
+        teamPosition: p.teamPosition || '',
+        win: p.win,
+        kills: p.kills,
+        deaths: p.deaths,
+        assists: p.assists,
+        kp: teamKills > 0 ? Math.round(((p.kills + p.assists) / teamKills) * 100) : 0,
+        cs: (p.totalMinionsKilled || 0) + (p.neutralMinionsKilled || 0),
+        goldEarned: p.goldEarned,
+        damage: p.totalDamageDealtToChampions || 0,
+        items: [p.item0, p.item1, p.item2, p.item3, p.item4, p.item5, p.item6],
+        summoner1Id: p.summoner1Id,
+        summoner2Id: p.summoner2Id,
+        primaryStyle: p.perks?.styles?.[0]?.style ?? 0,
+        subStyle: p.perks?.styles?.[1]?.style ?? 0,
+      };
+    });
+
+    // 매치 타임라인에서 팀별 골드 격차를 분 단위로 계산 (칼바람나락 등 일부 모드는 타임라인이 없을 수 있어 실패해도 무시)
+    let goldFrames: GoldFrame[] = [];
+    try {
+      const timeline = await getMatchTimeline(matchId, region as Platform);
+      const team100Ids = new Set(participants.filter((p) => p.teamId === 100).map((p) => p.participantId));
+      goldFrames = timeline.info.frames.map((f: any) => {
+        let t100 = 0;
+        let t200 = 0;
+        for (const pid of Object.keys(f.participantFrames)) {
+          const gold = f.participantFrames[pid].totalGold || 0;
+          if (team100Ids.has(Number(pid))) t100 += gold;
+          else t200 += gold;
+        }
+        return { minute: Math.round(f.timestamp / 60000), diff: t100 - t200 };
+      });
+    } catch {
+      goldFrames = [];
+    }
 
     return {
       props: {
@@ -108,6 +160,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
         highlightPuuid: typeof puuid === 'string' ? puuid : null,
         participants,
         ddragonVersion,
+        goldFrames,
       },
     };
   } catch (err) {
@@ -118,6 +171,30 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     return { props: { error: '매치 정보를 불러오는 중 오류가 발생했습니다.' } };
   }
 };
+
+function GoldDiffChart({ frames }: { frames: GoldFrame[] }) {
+  if (frames.length < 2) return null;
+  const width = 700;
+  const height = 130;
+  const padding = 10;
+  const maxAbs = Math.max(1, ...frames.map((f) => Math.abs(f.diff)));
+  const xStep = (width - padding * 2) / (frames.length - 1);
+  const yScale = (height / 2 - 12) / maxAbs;
+  const points = frames.map((f, i) => `${padding + i * xStep},${height / 2 - f.diff * yScale}`).join(' ');
+  const last = frames[frames.length - 1];
+
+  return (
+    <div className="timeline-chart">
+      <div className="timeline-chart-label">
+        골드 격차 · {last.diff >= 0 ? '블루팀 우세' : '레드팀 우세'} ({Math.abs(last.diff).toLocaleString()})
+      </div>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
+        <line x1={padding} y1={height / 2} x2={width - padding} y2={height / 2} stroke="var(--border)" strokeDasharray="4 4" />
+        <polyline points={points} fill="none" stroke="var(--gold)" strokeWidth={2} />
+      </svg>
+    </div>
+  );
+}
 
 function TeamBlock({
   team, highlightPuuid, gameDuration, maxDamage, ddragonVersion,
@@ -131,6 +208,9 @@ function TeamBlock({
         const damagePct = maxDamage > 0 ? Math.round((p.damage / maxDamage) * 100) : 0;
         return (
           <div key={p.puuid} className={`participant-row ${p.puuid === highlightPuuid ? 'me' : ''}`}>
+            {POSITION_LABELS[p.teamPosition] && (
+              <div className="position-tag">{POSITION_LABELS[p.teamPosition]}</div>
+            )}
             <div className="champ-cluster">
               <img
                 className="champion-icon"
@@ -167,6 +247,7 @@ function TeamBlock({
             <div className={`kda ${kdaClass(p.kills, p.deaths, p.assists)}`}>
               {p.kills} / {p.deaths} / {p.assists}
             </div>
+            <div className="stat-dim">KP {p.kp}%</div>
             <div className={`grade-badge ${gradeClass(grade)}`}>{grade}</div>
             <div className="stat-dim">CS {p.cs}</div>
             <div className="stat-dim">{p.goldEarned.toLocaleString()}G</div>
@@ -215,16 +296,18 @@ export default function MatchDetailPage(props: Props) {
   const maxDamage = Math.max(1, ...(props.participants?.map((p) => p.damage) ?? [1]));
 
   return (
-    <div className="container" style={{ maxWidth: 900 }}>
+    <div className="container" style={{ maxWidth: 940 }}>
       <a className="back-link" onClick={() => router.back()} style={{ cursor: 'pointer' }}>← 뒤로가기</a>
 
       <div className="match-detail-header">
         <h2>{QUEUE_NAMES[props.queueId ?? 0] ?? `기타(${props.queueId})`}</h2>
         <div className="sub">
           {props.gameDuration !== undefined ? formatDuration(props.gameDuration) : ''}
-          {' · 등급은 간단 추정치입니다'}
+          {' · 등급/KP는 간단 추정치입니다'}
         </div>
       </div>
+
+      {props.goldFrames && <GoldDiffChart frames={props.goldFrames} />}
 
       <TeamBlock team={team1} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} ddragonVersion={props.ddragonVersion ?? ''} />
       <TeamBlock team={team2} highlightPuuid={props.highlightPuuid} gameDuration={duration} maxDamage={maxDamage} ddragonVersion={props.ddragonVersion ?? ''} />
