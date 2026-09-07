@@ -1,10 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 :root {
-  --bg: #0d0d0d;
-  --bg-elevate: #161616;
-  --bg-elevate-2: #1c1c1c;
-  --border: #2b2b2b;
+  --bg: #1a1a1a;
+  --bg-elevate: #222222;
+  --bg-elevate-2: #292929;
+  --border: #343434;
   --gold: #ff6a1a;
   --gold-dim: #b8531a;
   --blue: #4c8fc9;
@@ -254,7 +254,7 @@ a { color: inherit; text-decoration: none; }
   padding: 100px 20px 70px;
   overflow: hidden;
   background-image:
-    linear-gradient(180deg, rgba(13,13,13,0.55) 0%, rgba(13,13,13,0.92) 75%, var(--bg) 100%),
+    linear-gradient(180deg, rgba(26,26,26,0.55) 0%, rgba(26,26,26,0.92) 75%, var(--bg) 100%),
     url('https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg');
   background-size: cover;
   background-position: center 20%;
