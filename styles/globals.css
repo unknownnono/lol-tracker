@@ -557,3 +557,79 @@ a { color: inherit; text-decoration: none; }
     grid-column: 2 / span 3;
   }
 }
+
+/* ---------- 추가: 빈 상태 안내 / 로딩 진행바 ---------- */
+
+.empty-state {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 13.5px;
+  background: var(--bg-elevate);
+  border-radius: 8px;
+}
+
+.top-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  width: 100%;
+  z-index: 9999;
+  background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  background-size: 50% 100%;
+  animation: progress-slide 0.9s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% { background-position: -50% 0; }
+  100% { background-position: 150% 0; }
+}
+
+/* ---------- 추가: 기기 간 동기화 박스 ---------- */
+
+.sync-box {
+  margin-top: 32px;
+  padding: 16px 18px;
+  background: var(--bg-elevate);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.sync-desc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  line-height: 1.6;
+}
+.sync-code {
+  color: var(--gold);
+  letter-spacing: 1px;
+  font-size: 14px;
+}
+.sync-form {
+  display: flex;
+  gap: 8px;
+}
+.sync-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+}
+.sync-form button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  background: var(--gold);
+  color: #14100a;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+}
+.sync-form button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

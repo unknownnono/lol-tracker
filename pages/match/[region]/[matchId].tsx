@@ -1,4 +1,5 @@
 import { useRouter } from 'next/router';
+import Head from 'next/head';
 import type { GetServerSideProps } from 'next';
 import {
   getMatchDetail,
@@ -297,6 +298,12 @@ export default function MatchDetailPage(props: Props) {
 
   return (
     <div className="container" style={{ maxWidth: 940 }}>
+      <Head>
+        <title>{QUEUE_NAMES[props.queueId ?? 0] ?? '매치'} 상세 - LoL 전적 검색</title>
+        <meta name="description" content="매치 참가자 전원의 챔피언, KDA, 아이템, 룬을 확인하세요." />
+        <meta property="og:title" content={`${QUEUE_NAMES[props.queueId ?? 0] ?? '매치'} 상세 정보`} />
+        <meta property="og:type" content="website" />
+      </Head>
       <a className="back-link" onClick={() => router.back()} style={{ cursor: 'pointer' }}>← 뒤로가기</a>
 
       <div className="match-detail-header">

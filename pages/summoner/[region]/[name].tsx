@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { GetServerSideProps } from 'next';
+import Head from 'next/head';
 import Link from 'next/link';
 import {
   getFullSummonerProfile,
@@ -10,6 +11,7 @@ import {
   PLATFORMS,
   Platform,
 } from '@/lib/riot';
+import { pushToServer, FAVORITES_KEY } from '@/lib/clientSync';
 
 interface MatchSummary {
   matchId: string;
@@ -75,7 +77,6 @@ const QUEUE_NAMES: Record<number, string> = {
   430: '일반(협동전)',
 };
 
-const FAVORITES_KEY = 'lol-tracker-favorites';
 
 function formatRelativeTime(gameCreation: number) {
   const diffMs = Date.now() - gameCreation;
@@ -168,7 +169,10 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
     };
   } catch (err) {
     if (err instanceof RiotApiError) {
-      return { props: { error: err.message } };
+      const message = err.status === 404
+        ? '해당 소환사를 찾을 수 없어요. 이름#태그와 지역을 다시 확인해주세요.'
+        : err.message;
+      return { props: { error: message } };
     }
     console.error(err);
     return { props: { error: '알 수 없는 오류가 발생했습니다.' } };
@@ -205,6 +209,7 @@ export default function SummonerPage(props: Props) {
       }
       localStorage.setItem(FAVORITES_KEY, JSON.stringify(next));
       setIsFavorite(!isFavorite);
+      pushToServer();
     } catch {
       // localStorage 사용 불가 시 무시
     }
@@ -245,6 +250,24 @@ export default function SummonerPage(props: Props) {
 
   return (
     <div className="container">
+      <Head>
+        <title>{props.gameName}#{props.tagLine} 전적 - LoL 전적 검색</title>
+        <meta
+          name="description"
+          content={`${props.gameName}#${props.tagLine}의 랭크, 최근 전적, 챔피언 통계를 확인하세요.${soloQueue ? ` 현재 ${soloQueue.tier} ${soloQueue.rank}.` : ''}`}
+        />
+        <meta property="og:title" content={`${props.gameName}#${props.tagLine} 전적`} />
+        <meta
+          property="og:description"
+          content={soloQueue ? `${soloQueue.tier} ${soloQueue.rank} · ${soloQueue.leaguePoints} LP` : '랭크 정보 없음'}
+        />
+        <meta
+          property="og:image"
+          content={`https://ddragon.leagueoflegends.com/cdn/${props.ddragonVersion}/img/profileicon/${props.profileIconId}.png`}
+        />
+        <meta property="og:type" content="profile" />
+        <meta name="twitter:card" content="summary" />
+      </Head>
       <Link className="back-link" href="/">← 다시 검색하기</Link>
 
       {props.activeGame && (
@@ -307,6 +330,9 @@ export default function SummonerPage(props: Props) {
 
       {tab === 'matches' && (
         <div className="match-list">
+          {recentTotal === 0 && (
+            <div className="empty-state">최근 10경기 안에 플레이한 기록이 없어요. 배치 중이거나 오랜만에 접속한 계정일 수 있어요.</div>
+          )}
           {props.matches?.map((m) => (
             <Link
               key={m.matchId}
@@ -338,6 +364,9 @@ export default function SummonerPage(props: Props) {
       {tab === 'champions' && (
         <div className="champion-stat-list">
           <div className="champion-stat-note">최근 {recentTotal}경기 기준 집계입니다.</div>
+          {championStats.length === 0 && (
+            <div className="empty-state">집계할 최근 전적이 없어요.</div>
+          )}
           {championStats.map((c) => {
             const winRate = Math.round((c.wins / c.games) * 100);
             const avgK = (c.kills / c.games).toFixed(1);
@@ -363,6 +392,9 @@ export default function SummonerPage(props: Props) {
       {tab === 'mastery' && (
         <div className="champion-stat-list">
           <div className="champion-stat-note">숙련도가 가장 높은 챔피언 5개입니다.</div>
+          {(!props.masteries || props.masteries.length === 0) && (
+            <div className="empty-state">마스터리 정보가 없어요. 플레이한 챔피언이 없거나 아직 반영되지 않았을 수 있어요.</div>
+          )}
           {props.masteries?.map((m) => (
             <div key={m.championName} className="champion-stat-row">
               <img
