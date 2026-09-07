@@ -1,0 +1,509 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg: #0a0d12;
+  --bg-elevate: #12161d;
+  --bg-elevate-2: #171c24;
+  --border: #232935;
+  --gold: #c9aa71;
+  --gold-dim: #8a7654;
+  --blue: #4c8fc9;
+  --blue-bg: rgba(76, 143, 201, 0.1);
+  --red: #c4534a;
+  --red-bg: rgba(196, 83, 74, 0.1);
+  --text: #e7e9ec;
+  --text-muted: #8891a0;
+  --text-faint: #545c69;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, 'Malgun Gothic', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  background-image: radial-gradient(circle at 50% -10%, #161c26 0%, var(--bg) 55%);
+  background-attachment: fixed;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.container { max-width: 760px; margin: 0 auto; padding: 48px 20px 80px; }
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 28px;
+  transition: color 0.15s;
+}
+.back-link:hover { color: var(--gold); }
+
+/* ---------- 홈 / 검색 ---------- */
+
+.hero { text-align: center; padding: 60px 0 40px; }
+
+.hero h1 {
+  font-family: 'Cinzel', serif;
+  font-weight: 700;
+  font-size: 34px;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px;
+  background: linear-gradient(180deg, #f0dfb6, var(--gold));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero p { color: var(--text-muted); font-size: 15px; margin: 0; }
+
+.search-box {
+  display: flex;
+  gap: 0;
+  margin-top: 32px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--bg-elevate);
+  transition: border-color 0.15s;
+}
+.search-box:focus-within { border-color: var(--gold-dim); }
+
+.search-box select {
+  border: none;
+  border-right: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 14px;
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  padding: 15px 16px;
+  outline: none;
+}
+.search-box input::placeholder { color: var(--text-faint); }
+
+.search-box button {
+  border: none;
+  background: var(--gold);
+  color: #14100a;
+  font-weight: 700;
+  font-size: 14px;
+  padding: 0 26px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.search-box button:hover { background: #dcbf87; }
+
+/* ---------- 소환사 프로필 ---------- */
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-icon-wrap { position: relative; flex-shrink: 0; }
+
+.profile-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 14px;
+  border: 2px solid var(--gold-dim);
+  display: block;
+}
+
+.level-badge {
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--gold);
+  color: #14100a;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.profile-name {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 24px;
+  margin: 0;
+  color: var(--text);
+}
+
+.profile-tag { color: var(--text-faint); font-weight: 400; font-size: 17px; }
+
+.rank-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  background: var(--bg-elevate);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  margin-bottom: 28px;
+}
+.rank-strip .tier { font-weight: 700; color: var(--gold); font-size: 15px; }
+.rank-strip .record { color: var(--text-muted); font-size: 13px; }
+.rank-strip.unranked { border-left-color: var(--text-faint); color: var(--text-muted); font-size: 14px; }
+
+.section-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin: 0 0 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.match-list { display: flex; flex-direction: column; gap: 6px; }
+
+.match-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid transparent;
+  background: var(--bg-elevate);
+  transition: background 0.12s;
+}
+.match-row:hover { background: var(--bg-elevate-2); }
+.match-row.win { border-left-color: var(--blue); }
+.match-row.loss { border-left-color: var(--red); }
+
+.match-meta { width: 92px; flex-shrink: 0; }
+.match-meta .queue { font-size: 12.5px; color: var(--text-muted); font-weight: 500; }
+.match-meta .time { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+.champion-icon { width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0; }
+
+.match-champion {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.kda { font-weight: 600; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+
+.result-tag { width: 44px; text-align: right; font-size: 13px; font-weight: 700; }
+.win .result-tag { color: var(--blue); }
+.loss .result-tag { color: var(--red); }
+
+.error-box {
+  padding: 16px 18px;
+  background: var(--red-bg);
+  border: 1px solid rgba(196, 83, 74, 0.4);
+  border-radius: 8px;
+  margin-top: 16px;
+  color: #f0b8b3;
+  font-size: 14px;
+}
+
+/* ---------- 매치 상세 ---------- */
+
+.match-detail-header { padding-bottom: 18px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.match-detail-header h2 { font-family: 'Cinzel', serif; font-size: 20px; margin: 0 0 4px; }
+.match-detail-header .sub { color: var(--text-faint); font-size: 13px; }
+
+.team-block { margin-bottom: 22px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+
+.team-heading { padding: 10px 16px; font-weight: 700; font-size: 13.5px; letter-spacing: 0.3px; }
+.team-heading.win { color: var(--blue); background: var(--blue-bg); }
+.team-heading.loss { color: var(--red); background: var(--red-bg); }
+
+.participant-row {
+  display: grid;
+  grid-template-columns: 36px 1fr 84px 56px 64px auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 16px;
+}
+.participant-row:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+.participant-row.me { background: rgba(201, 170, 113, 0.09); }
+
+.participant-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.stat-dim { color: var(--text-muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+
+.item-row { display: flex; gap: 2px; }
+
+.item-slot { width: 22px; height: 22px; border-radius: 4px; background: var(--bg); border: 1px solid var(--border); }
+
+/* ---------- 추가: 히어로 배경 / 티어 엠블럼 / KDA 컬러 ---------- */
+
+.hero-bg {
+  position: relative;
+  margin: -48px -20px 0;
+  padding: 100px 20px 70px;
+  overflow: hidden;
+  background-image:
+    linear-gradient(180deg, rgba(10,13,18,0.55) 0%, rgba(10,13,18,0.92) 75%, var(--bg) 100%),
+    url('https://ddragon.leagueoflegends.com/cdn/img/champion/splash/Ahri_0.jpg');
+  background-size: cover;
+  background-position: center 20%;
+}
+
+.hero-bg .hero { padding: 0; }
+
+.hero-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, var(--bg) 0%, transparent 15%, transparent 85%, var(--bg) 100%);
+  pointer-events: none;
+}
+
+.tier-emblem {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+
+.rank-strip {
+  gap: 14px;
+}
+.rank-strip .rank-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rank-strip .tier-text .tier {
+  display: block;
+}
+.rank-strip .tier-text .record {
+  display: block;
+  margin-top: 2px;
+}
+
+.kda-great { color: var(--gold); }
+.kda-good { color: var(--blue); }
+.kda-bad { color: var(--red); }
+.kda-normal { color: var(--text); }
+
+/* ---------- 추가: 최근 검색, 탭, 챔피언 통계, 반응형 ---------- */
+
+.recent-searches { margin-top: 28px; }
+
+.recent-chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.recent-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  background: var(--bg-elevate);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+.recent-chip:hover { border-color: var(--gold-dim); }
+.recent-chip .tag { color: var(--text-faint); }
+.recent-chip .plat {
+  margin-left: 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(201, 170, 113, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+.profile-header { position: relative; }
+
+.recent-donut {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.recent-donut-label { font-size: 11px; color: var(--text-faint); }
+
+.tab-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+.champion-stat-note { font-size: 12px; color: var(--text-faint); margin-bottom: 10px; }
+
+.champion-stat-list { display: flex; flex-direction: column; gap: 6px; }
+
+.champion-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  background: var(--bg-elevate);
+}
+
+.champion-stat-name { flex: 1; font-size: 14px; font-weight: 500; }
+
+.champion-winrate { width: 48px; text-align: right; font-weight: 700; color: var(--gold); font-size: 13.5px; }
+
+/* ---------- 반응형 (모바일) ---------- */
+
+@media (max-width: 560px) {
+  .container { padding: 28px 14px 60px; }
+
+  .hero-bg { margin: -28px -14px 0; padding: 60px 14px 40px; }
+  .hero h1 { font-size: 26px; }
+
+  .search-box { flex-wrap: wrap; }
+  .search-box select { width: 100%; border-right: none; border-bottom: 1px solid var(--border); padding: 10px 14px; }
+  .search-box input { width: 100%; }
+  .search-box button { width: 100%; padding: 13px 0; }
+
+  .profile-header { flex-wrap: wrap; gap: 12px; }
+  .recent-donut { margin-left: 0; flex-direction: row; gap: 8px; }
+
+  .match-meta { width: 64px; }
+  .match-meta .queue { font-size: 11px; }
+  .champion-icon { width: 30px; height: 30px; }
+  .kda { font-size: 12px; }
+  .match-champion { display: none; }
+
+  .participant-row {
+    grid-template-columns: 30px 1fr 70px;
+    row-gap: 4px;
+  }
+  .participant-row .stat-dim,
+  .participant-row .item-row {
+    grid-column: 2 / span 2;
+    font-size: 11px;
+  }
+
+  .champion-stat-row { flex-wrap: wrap; }
+  .champion-stat-name { width: 100%; order: -1; }
+}
+
+/* ---------- 추가: 라이브 배너 / 즐겨찾기 / 스펠·룬 / 등급 배지 ---------- */
+
+.live-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(76, 143, 201, 0.12);
+  border: 1px solid rgba(76, 143, 201, 0.35);
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 999px;
+  margin-bottom: 16px;
+}
+.live-dot {
+  width: 7px; height: 7px; border-radius: 999px; background: var(--blue);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.favorite-btn {
+  background: none;
+  border: none;
+  color: var(--text-faint);
+  font-size: 20px;
+  cursor: pointer;
+  margin-left: 8px;
+  vertical-align: middle;
+  line-height: 1;
+}
+.favorite-btn.active { color: var(--gold); }
+
+.recent-chip.favorite { border-color: rgba(201, 170, 113, 0.35); }
+.recent-chip .star { color: var(--gold); }
+
+/* 매치 상세: 챔피언 + 스펠/룬 클러스터 */
+.champ-cluster { display: flex; align-items: center; gap: 4px; }
+.spell-rune-col { display: flex; flex-direction: column; gap: 2px; }
+.spell-pair { display: flex; flex-direction: column; gap: 2px; }
+.spell-icon {
+  width: 15px; height: 15px; border-radius: 3px; background: var(--bg); border: 1px solid var(--border);
+}
+.rune-icon { width: 15px; height: 15px; border-radius: 999px; }
+
+.grade-badge {
+  width: 32px;
+  text-align: center;
+  font-weight: 800;
+  font-size: 11.5px;
+  padding: 3px 0;
+  border-radius: 4px;
+}
+.grade-badge.splus { background: rgba(201, 170, 113, 0.18); color: var(--gold); }
+.grade-badge.s { background: rgba(76, 143, 201, 0.18); color: var(--blue); }
+.grade-badge.a { background: rgba(255, 255, 255, 0.07); color: var(--text); }
+.grade-badge.b { background: rgba(255, 255, 255, 0.04); color: var(--text-muted); }
+.grade-badge.c { background: rgba(196, 83, 74, 0.15); color: var(--red); }
+
+/* participant-row 컬럼 재조정 (챔피언 클러스터 + 등급 + 딜량 칸 추가) */
+.participant-row {
+  grid-template-columns: 62px 1fr 84px 40px 56px 64px 90px auto;
+}
+
+.damage-cell { display: flex; flex-direction: column; gap: 2px; }
+.damage-bar-track {
+  width: 80px;
+  height: 5px;
+  background: var(--bg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.damage-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red), #e8877e);
+  border-radius: 999px;
+}
+.damage-value { font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+@media (max-width: 560px) {
+  .participant-row { grid-template-columns: 50px 1fr 60px 34px; }
+  .participant-row .stat-dim,
+  .participant-row .item-row,
+  .participant-row .damage-cell {
+    grid-column: 2 / span 3;
+  }
+}
