@@ -1,23 +1,24 @@
 # 칼바람 빌드 어시스턴트 설계
 
-- 작성일: 2026-10-28 (2판: 2026-10-29, Mayhem 데이터 수집 방식 변경)
+- 작성일: 2026-10-28 (2판: 2026-10-29 Mayhem 데이터 수집 방식 변경, 3판: 2026-10-29 룬 기능 제거·LCU 폴링)
 - 상태: 사용자 검토 대기
-- 앱 이름: 미정 (임시로 `lol-tracker-desktop`, 룬 페이지·아이템 세트 접두어 `[LT]` 사용 — 이름 확정 시 일괄 변경)
+- 앱 이름: 미정 (임시로 `lol-tracker-desktop`, 아이템 세트 접두어 `[LT]` 사용 — 이름 확정 시 일괄 변경)
 
 ## 1. 목표
 
-OP.GG 데스크톱 앱처럼, 롤 클라이언트에 붙어 **칼바람 증강(Mayhem, 큐 2400) 챔피언 선택 시 추천 룬·스펠·아이템 세트를 자동 적용**하고 **증강 추천을 보여주는** Windows 데스크톱 앱을 만든다.
+OP.GG 데스크톱 앱처럼, 롤 클라이언트에 붙어 **칼바람 아수라장(Mayhem, 큐 2400) 챔피언 선택 시 추천 스펠·아이템 세트를 자동 적용**하고 **증강 추천을 보여주는** Windows 데스크톱 앱을 만든다.
 
 추천 데이터는 데스크톱 앱이 롤 클라이언트(LCU)에서 읽은 Mayhem 경기를 기존 사이트 `lol.dec03.kr`(이 저장소)로 보내고, 사이트가 모아서 집계해 제공한다.
 
 ### 성공 기준
-- Mayhem 챔피언 선택에서 챔피언이 정해지거나 바뀌면, 수 초 안에 추천 룬 페이지·스펠·아이템 세트가 클라이언트에 적용된다.
-- 앱 창에 추천 룬·스펠·아이템·증강이 선택 비율·승률·표본 수와 함께 표시된다.
-- 사용자의 기존 룬 페이지·아이템 세트는 절대 삭제·변경되지 않는다.
+- Mayhem 챔피언 선택에서 챔피언이 정해지거나 바뀌면, 수 초 안에 추천 스펠·아이템 세트가 클라이언트에 적용된다.
+- 앱 창에 추천 스펠·아이템·증강이 선택 비율·승률·표본 수와 함께 표시된다.
+- 사용자의 기존 아이템 세트는 절대 삭제·변경되지 않는다.
 - 데이터 수집은 사용자가 끌 수 있고, 켜져 있어도 LCU 요청은 10초에 1건·하루 300건을 넘지 않으며, 챔피언 선택·게임 중에는 멈춘다.
 - 전적 검색 기능은 지금처럼 동작한다.
 
 ### 범위 밖 (이번에 하지 않음)
+- **룬 자동 세팅**: Mayhem은 룬 대신 증강을 쓴다 (사용자 확인 2026-10-29, LCU 기록의 룬 값도 전부 0). 서버의 룬 집계 코드는 450용으로 남아 있지만 앱은 쓰지 않는다.
 - Mayhem 외 큐 (일반 칼바람 450은 서버가 받을 수는 있게 두되, 앱은 수집·추천하지 않음), KR 이외 지역
 - 시작 아이템, 아이템 구매 순서, 스킬 순서
 - 게임 화면 위 오버레이 (별도 창 + 항상 위로 대체)
@@ -36,7 +37,7 @@ OP.GG 데스크톱 앱처럼, 롤 클라이언트에 붙어 **칼바람 증강(M
 
 ```
 [데스크톱 앱 (Electron)]
-   │  LCU(127.0.0.1): 챔피언 선택 감지, 룬·스펠·아이템 세트 적용, 경기 기록 읽기
+   │  LCU(127.0.0.1): 챔피언 선택 감지(1초 폴링), 스펠·아이템 세트 적용, 경기 기록 읽기
    │
    ├── POST /api/aram/ingest  (Mayhem 경기 묶음, X-Ingest-Key) ──▶ [lol-tracker (Vercel)] ──▶ Upstash Redis
    └── GET  /api/aram/build   (챔피언별 추천)                  ◀──        (집계 · 패치 · 처리 기록)
@@ -125,45 +126,43 @@ interface IngestResponse { accepted: number; duplicates: number; rejected: numbe
 ### 5.1 LCU 연결
 - `src/main/lcu/credentials.ts`: PowerShell `Get-CimInstance Win32_Process -Filter "name='LeagueClientUx.exe'"`의 `CommandLine`에서 `--app-port`, `--remoting-auth-token` 추출 (순수 파싱 함수 분리).
 - `src/main/lcu/client.ts`: `https://127.0.0.1:{port}` + Basic 인증(`riot:{token}`). 자체 서명 인증서는 이 연결에 한해서만 허용.
-- `src/main/lcu/events.ts`: LCU 웹소켓(WAMP) 구독
-  - `OnJsonApiEvent_lol-gameflow_v1_gameflow-phase`
-  - `OnJsonApiEvent_lol-champ-select_v1_session`
-  - 연결 끊김 시 3초 간격 재연결.
+- `src/main/lcu/watcher.ts`: **1초 간격 폴링** (웹소켓보다 단순하고 테스트하기 쉬움, 로컬 요청이라 부담 없음)
+  - `GET /lol-gameflow/v1/gameflow-phase`, 챔피언 선택 중이면 `GET /lol-gameflow/v1/session`(큐 ID)과 `GET /lol-champ-select/v1/current-champion`
+  - 클라이언트가 없으면 3초마다 다시 찾는다.
 
 ### 5.2 빌드 자동 적용 — `src/main/features/applyBuild.ts`
 - Mayhem 챔피언 선택에서 챔피언 변경 감지 → 500ms 디바운스 → `GET /api/aram/build?queue=2400` → 켜진 기능만 적용
-  - 룬: `[LT] ` 접두어 페이지를 찾아 `PUT`, 없으면 `POST`, 이후 현재 페이지로 지정. 룬 파편은 기본값(공격 적응형, 유연 적응형, 방어 체력)으로 채운다. 슬롯이 가득 차면 경고만. **다른 페이지는 삭제·수정하지 않는다.**
   - 스펠: `PATCH /lol-champ-select/v1/session/my-selection`. 점멸 위치(D/F) 설정 반영.
   - 아이템 세트: `[LT]` 접두어 세트만 교체, 나머지 유지. 코어 아이템 + 신발.
 - `lowSample`이어도 적용하되 화면에 "데이터 부족" 표시. `sampleSize: 0`이면 적용하지 않는다.
 
 ### 5.3 경기 수집기 — `src/main/collector/`
-- **내 경기**: 앱 시작 시와 게임 종료(`EndOfGame` 단계) 시 `GET /lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=20` → 큐 2400이고 아직 보내지 않은 경기만 `GET /lol-match-history/v1/games/{gameId}` → `IngestGame`으로 변환 → 서버로 전송.
+- **내 경기**: 앱 시작 시와 게임 종료(`EndOfGame` 단계) 30초 뒤(경기 기록 반영 대기) `GET /lol-match-history/v1/products/lol/current-summoner/matches?begIndex=0&endIndex=19` → 큐 2400이고 아직 보내지 않은 경기만 `GET /lol-match-history/v1/games/{gameId}` → `IngestGame`으로 변환 → 서버로 전송.
 - **같이 한 유저들의 경기** (설정 `crawlOthers`, 기본 켬):
-  - 내 경기 상세의 다른 9명 puuid를 로컬 대기열 뒤에 추가 (중복 제외, 최대 2,000명).
+  - 내 경기 상세의 `participantIdentities[].player.puuid` 중 나를 뺀 9명을 로컬 대기열 뒤에 추가 (중복 제외, 최대 2,000명). puuid는 로컬 상태 파일에만 두고 서버로 보내지 않는다.
   - 대기열에서 1명씩 `GET /lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=10` → 큐 2400이고 안 보낸 경기의 상세 조회 → 그 경기의 참가자도 대기열에 추가.
   - 24시간 안에 조회한 puuid는 건너뛴다.
 - **속도 제한** (내 경기 수집 포함 모든 경기 기록 요청에 적용):
   - LCU 경기 기록 요청 **10초에 1건** (`intervalSec`, 최소 5), **하루 300건** (`dailyCap`, 최대 1,000). 하루는 로컬 날짜 기준.
   - 게임 진행 단계가 `ChampSelect`, `GameStart`, `InProgress`, `Reconnect`이면 멈춘다.
   - LCU가 200이 아닌 응답(404 제외)을 주면 **30분 동안 멈춘다.**
-- **전송**: 변환된 경기를 최대 20개씩 묶어 `POST /api/aram/ingest`. 실패하면(네트워크·503) 로컬 전송 대기 목록에 남겨 1분 뒤 다시 시도. 성공한 gameId는 로컬 "보낸 경기" 집합에 기록 (최근 20,000개 유지).
+- **전송**: LCU가 요청한 개수보다 많이 돌려줄 때가 있으므로(실측: 20개 요청에 21개) 개수를 믿지 않고 항상 20개씩 나눠 `POST /api/aram/ingest`. 실패하면(네트워크·503) 로컬 전송 대기 목록에 남겨 1분 뒤 다시 시도. 성공한 gameId는 로컬 "보낸 경기" 집합에 기록 (최근 20,000개 유지).
 - 변환 시 개인 정보(이름, puuid)는 서버로 보내지 않는다 (4.3 형식에 없음).
 - 상태 파일: `userData/collector.json` — 대기열, 최근 조회 시각, 보낸 경기, 오늘 요청 수, 일시 정지 해제 시각. 앱을 껐다 켜도 이어 간다.
 - `INGEST_KEY`는 빌드 시 환경변수로 주입한다 (저장소에 커밋하지 않음).
 
 ### 5.4 설정 — `userData/settings.json`
-`autoRunes`, `autoSpells`, `autoItems`, `flashKey: 'D' | 'F'`, `alwaysOnTopInGame`, `apiBaseUrl` (기본 `https://lol.dec03.kr`), `collectEnabled` (기본 켬), `crawlOthers` (기본 켬), `intervalSec` (기본 10), `dailyCap` (기본 300).
+`autoSpells`, `autoItems`, `flashKey: 'D' | 'F'`, `alwaysOnTopInGame`, `apiBaseUrl` (기본 `https://lol.dec03.kr`), `collectEnabled` (기본 켬), `crawlOthers` (기본 켬), `intervalSec` (기본 10), `dailyCap` (기본 300).
 
 ### 5.5 화면 (렌더러)
 - 상태: 클라이언트 대기 중 / 연결됨 / 챔피언 선택 중 / 게임 중
 - 현재 챔피언, 큐
-- 추천 룬·스펠·코어 아이템·신발·**증강**: 아이콘 + 선택 비율 + 승률, 표본 수, `lowSample`이면 "데이터 부족"
+- 추천 스펠·코어 아이템·신발·**증강**: 아이콘 + 선택 비율 + 승률, 표본 수, `lowSample`이면 "데이터 부족"
 - 항목별 적용 결과 (성공 / 실패 사유)
 - 수집 상태: 오늘 요청 수 / 한도, 보낸 경기 수, 대기열 길이, 일시 정지 여부
 - 설정: 기능 토글, 점멸 위치, 수집 켜기/끄기, 다른 유저 수집 켜기/끄기, 간격, 하루 한도, "다시 적용"
 - 게임 진행 중 `alwaysOnTopInGame`이면 창을 항상 위로.
-- 아이콘: Data Dragon / Community Dragon
+- 아이콘·이름: 챔피언·아이템·스펠은 Data Dragon, 증강은 Community Dragon `cherry-augments.json` (Mayhem 증강이 `ARAM_` 접두어로 들어 있음, 2026-10-29 확인)
 
 ### 5.6 프로세스 간 통신
 - preload에서 `contextBridge`로 최소 API만 노출: `onState(cb)`, `getSettings()`, `setSettings(patch)`, `reapply()`.
@@ -188,7 +187,7 @@ interface IngestResponse { accepted: number; duplicates: number; rejected: numbe
 
 - Vitest (양쪽 저장소).
 - 서버: `samplesFromIngest`(룬 키·아이템·증강·조기 종료), ingest 검증·인증·중복·잠금 실패, 빌드 계산, 한도기.
-- 앱: LCU 실행 인자 파싱, LCU 경기 상세 → `IngestGame` 변환 (실제 LCU 응답을 가명 처리한 픽스처), 수집기 속도 제한·일시 정지·단계별 정지·하루 한도, 추천 → 룬 페이지·스펠·아이템 세트 요청 변환, 기존 페이지·세트 보존.
+- 앱: LCU 실행 인자 파싱, LCU 경기 상세 → `IngestGame` 변환 (실제 LCU 응답을 가명 처리한 픽스처), 수집기 속도 제한·일시 정지·단계별 정지·하루 한도, 추천 → 스펠·아이템 세트 요청 변환, 기존 세트 보존.
 - 수동: 실제 Mayhem 챔피언 선택에서 적용 확인, 게임 종료 후 경기 전송 확인.
 
 ## 8. 데이터 검증 기록
