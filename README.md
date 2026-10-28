@@ -27,7 +27,22 @@ lib/riot.ts                          # Riot API 호출 로직 전부 (핵심 파
 pages/api/summoner.ts                # (선택적으로 쓸 수 있는) REST API 엔드포인트
 pages/index.tsx                      # 검색 홈 화면
 pages/summoner/[region]/[name].tsx   # 소환사 프로필 페이지 (서버사이드 렌더링)
+lib/rateLimit.ts                     # Riot API 전역 호출 한도기 (Upstash 공유 카운터)
+lib/aram/                            # Mayhem 통계: 수집 API(ingest) · 집계(aggregate) · 계산(build) · 저장(store)
+pages/api/aram/build.ts              # 칼바람 추천 빌드 API (?champion=ID&queue=450|2400)
 ```
+
+## Mayhem 통계 (데스크톱 앱용)
+
+- 데이터: 데스크톱 앱이 롤 클라이언트(LCU)에서 읽은 Mayhem 경기를 `POST /api/aram/ingest`로 보냅니다 (Riot 공개 API로는 Mayhem 경기를 받을 수 없음).
+- 조회: `GET /api/aram/build?champion=103&queue=2400` → 룬·스펠·코어 아이템·신발·증강 추천 (5분 CDN 캐시)
+- 이 PC 클라이언트의 내 Mayhem 경기 보내기 (롤 클라이언트 실행 중이어야 함):
+
+```bash
+npm run push:lcu -- --api=http://localhost:3000
+```
+
+- 테스트: `npm test`
 
 ## 4. 다음에 추가하면 좋은 기능들
 
