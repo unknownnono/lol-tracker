@@ -8,7 +8,7 @@ import { Pacer } from '@/lib/aram/pacer';
 import { upstash } from '@/lib/aram/redis';
 import { SKILL_PATCH_WINDOW, applySkillSamples, mergeSkillAggs, pruneSkillAgg, skillSamples, type SkillAgg } from '@/lib/aram/skills';
 import { loadAggs, saveAggs } from '@/lib/aram/store';
-import { RiotApiError, getLatestDdragonVersion, riotRequest } from '@/lib/riot';
+import { getLatestDdragonVersion } from '@/lib/riot';
 
 const KR = 'https://kr.api.riotgames.com';
 const ASIA = 'https://asia.api.riotgames.com';
@@ -23,23 +23,30 @@ const RECENT_DAYS = 180; // 12패치 ≈ 반년: 경기 목록부터 이 기간�
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const pacer = new Pacer();
 
+// 요청 한도(429)면 Riot이 알려준 시간만큼 쉽니다. 키 만료(403)면 멈춥니다. Redis를 쓰지 않는 직접 호출.
 async function riot<T>(url: string): Promise<T | null> {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     let wait: number;
     while ((wait = pacer.waitMs(Date.now())) > 0) await sleep(wait);
     pacer.record(Date.now());
+    let res: Response;
     try {
-      return await riotRequest<T>(url);
-    } catch (err) {
-      if (err instanceof RiotApiError && err.status === 404) return null;
-      if (err instanceof RiotApiError && err.status === 429) {
-        console.log('  요청 한도 → 30초 쉼');
-        await sleep(30_000);
-        continue;
-      }
-      if (err instanceof RiotApiError && err.status === 403) throw err; // 키 만료: 멈춤
+      res = await fetch(url, { headers: { 'X-Riot-Token': process.env.RIOT_API_KEY ?? '' }, signal: AbortSignal.timeout(10_000) });
+    } catch {
       await sleep(3000);
+      continue;
     }
+    if (res.ok) return (await res.json()) as T;
+    if (res.status === 404) return null;
+    if (res.status === 403 || res.status === 401) throw new Error(`Riot API 키 오류 (${res.status})`);
+    if (res.status === 429) {
+      const retry = Number(res.headers.get('retry-after') ?? '10') || 10;
+      const path = new URL(url).pathname.replace(/[A-Za-z0-9_-]{40,}/, '{puuid}').replace(/KR_\d+/, '{match}');
+      console.log(`  요청 한도 (${res.headers.get('x-rate-limit-type') ?? '?'}, ${path}) → ${retry}초 쉼`);
+      await sleep(retry * 1000);
+      continue;
+    }
+    await sleep(3000);
   }
   return null;
 }
