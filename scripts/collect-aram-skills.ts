@@ -1,5 +1,6 @@
 // 일반 칼바람(450) 경기 타임라인을 Riot API로 모아 챔피언별 스킬 순서를 쌓습니다 (아수라장은 Riot API가 막아서 대신 씀).
-// 랭크 유저 몇 명에서 시작해, 읽은 경기의 다른 참가자로 넓혀 갑니다. 이미 읽은 경기는 로컬 파일로 기억합니다.
+// 지난번에 남은 대기 유저부터 이어서, 없으면 무작위 랭크 유저에서 시작해 읽은 경기의 다른 참가자로 넓혀 갑니다.
+// 이미 읽은 경기와 대기 유저는 로컬 파일로 기억합니다.
 // 사용법: npm run collect:skills -- [--max=300]   (Ctrl+C로 멈추면 모은 데까지 저장)
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -12,11 +13,14 @@ import { getLatestDdragonVersion } from '@/lib/riot';
 
 const KR = 'https://kr.api.riotgames.com';
 const ASIA = 'https://asia.api.riotgames.com';
-const SEED_TIERS = ['GOLD/I', 'PLATINUM/II', 'EMERALD/III', 'SILVER/I'];
+const SEED_TIERS = ['SILVER', 'GOLD', 'PLATINUM', 'EMERALD', 'DIAMOND'];
+const SEED_DIVS = ['I', 'II', 'III', 'IV'];
+const SEED_MIN = 300; // 대기 유저가 이보다 적으면 무작위 랭크 유저로 채움
 const FLUSH_EVERY = 25;
 const QUEUE_MAX = 5000;
 const CACHE_DIR = join(process.cwd(), 'scripts', '.cache');
 const SEEN_FILE = join(CACHE_DIR, 'skill-seen.json');
+const QUEUE_FILE = join(CACHE_DIR, 'skill-queue.json');
 const SEEN_MAX = 50_000;
 const RECENT_DAYS = 180; // 12패치 ≈ 반년: 경기 목록부터 이 기간만 받아 오래된 경기를 열어 보는 요청을 아낌
 
@@ -64,6 +68,22 @@ function saveSeen(seen: Set<string>) {
   writeFileSync(SEEN_FILE, JSON.stringify([...seen].slice(-SEEN_MAX)));
 }
 
+function loadQueue(): string[] {
+  try {
+    const v = JSON.parse(readFileSync(QUEUE_FILE, 'utf8'));
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveQueue(queue: string[]) {
+  if (!existsSync(CACHE_DIR)) mkdirSync(CACHE_DIR, { recursive: true });
+  writeFileSync(QUEUE_FILE, JSON.stringify(queue.slice(0, QUEUE_MAX)));
+}
+
+const pick = <T>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+
 // 모은 증분을 Redis 누적값에 더합니다 (MGET 1번 + MSET 1번).
 async function flush(delta: Map<string, SkillAgg>) {
   if (delta.size === 0) return;
@@ -101,11 +121,14 @@ async function main() {
     console.log('\n멈추는 중… 모은 데까지 저장합니다.');
   });
 
-  for (const t of SEED_TIERS) {
-    const entries = await riot<{ puuid?: string }[]>(`${KR}/lol/league/v4/entries/RANKED_SOLO_5x5/${t}?page=1`);
-    for (const e of (entries ?? []).slice(0, 25)) if (e.puuid) enqueue(e.puuid);
+  for (const p of loadQueue()) enqueue(p);
+  const resumed = queue.length;
+  for (let i = 0; i < 4 && queue.length < SEED_MIN; i++) {
+    const page = 1 + Math.floor(Math.random() * 20);
+    const entries = await riot<{ puuid?: string }[]>(`${KR}/lol/league/v4/entries/RANKED_SOLO_5x5/${pick(SEED_TIERS)}/${pick(SEED_DIVS)}?page=${page}`);
+    for (const e of (entries ?? []).sort(() => Math.random() - 0.5).slice(0, 50)) if (e.puuid) enqueue(e.puuid);
   }
-  console.log(`최신 패치 ${latest}, 시작 유저 ${queue.length}명, 목표 ${max}판`);
+  console.log(`최신 패치 ${latest}, 대기 유저 ${queue.length}명 (지난번에서 이어서 ${resumed}명), 목표 ${max}판`);
 
   while (!stopping && done < max && queue.length > 0) {
     const puuid = queue.shift()!;
@@ -128,13 +151,15 @@ async function main() {
       if (done % FLUSH_EVERY === 0) {
         await flush(delta);
         saveSeen(seen);
+        saveQueue(queue);
         console.log(`${done}판 저장 (대기 유저 ${queue.length}명)`);
       }
     }
   }
   await flush(delta);
   saveSeen(seen);
-  console.log(`끝: ${done}판`);
+  saveQueue(queue);
+  console.log(`끝: ${done}판 (다음에 이어서 볼 유저 ${queue.length}명)`);
 }
 
 main().catch((err) => {
