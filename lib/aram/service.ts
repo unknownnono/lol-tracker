@@ -1,6 +1,7 @@
 // 빌드 조회: 최신 패치와 직전 패치의 누적값을 읽어 추천을 계산합니다.
 import { aggKey, type Queue } from './aggregate';
 import { computeBuild } from './build';
+import { skillKey, type SkillAgg } from './skills';
 import { upstash, type RedisLike } from './redis';
 import { latestPatches, loadAggs } from './store';
 import type { AramBuildResponse } from './types';
@@ -12,8 +13,12 @@ export async function getAramBuild(championId: number, queue: Queue, redis: Redi
   }
   const currentKey = aggKey(queue, patch, championId);
   const prevKey = prevPatch ? aggKey(queue, prevPatch, championId) : null;
-  const aggs = await loadAggs(redis, prevKey ? [currentKey, prevKey] : [currentKey]);
+  // 스킬 순서(일반 칼바람 기준, 패치 구분 없음)도 같은 MGET 한 번으로 읽습니다.
+  const keys = [currentKey, ...(prevKey ? [prevKey] : [])];
+  const aggs = await loadAggs(redis, [...keys, skillKey(championId)]);
+  const skills = (aggs.get(skillKey(championId)) as unknown as SkillAgg | undefined) ?? null;
   return computeBuild({
+    skills,
     championId,
     queue,
     patch,

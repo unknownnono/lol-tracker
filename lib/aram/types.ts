@@ -18,6 +18,15 @@ export interface AramBuildResponse {
   coreItems: BuildStat[];
   boots: BuildStat[];
   augments: BuildStat[];
+  skills: SkillBuild | null; // 일반 칼바람(450) 기준 스킬 빌드 (아수라장은 Riot API가 막아서)
+}
+
+// key: orders는 선마 순서("QEW"), sequences는 레벨별 순서("QWEQQRQEQEREEWW", 최대 15레벨)
+export interface SkillBuild {
+  queue: 450;
+  sampleSize: number;
+  orders: BuildStat[];
+  sequences: BuildStat[];
 }
 
 // POST /api/aram/ingest 요청·응답. 데스크톱 앱이 LCU 경기 상세를 이 형식으로 바꿔 보냅니다.

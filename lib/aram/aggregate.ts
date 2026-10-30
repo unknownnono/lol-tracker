@@ -56,15 +56,15 @@ export function runeKeyOf(primary: number, perks: number[], sub: number): string
 
 const patchParts = (patch: string) => patch.split('.').map(Number) as [number, number];
 
-// 최신 패치와 그 이전 3개 패치까지만 받습니다 (미래 패치나 오래된 패치로 조회가 망가지는 것 방지).
+// 최신 패치와 그 이전 maxBack개 패치까지만 받습니다 (미래 패치나 오래된 패치로 조회가 망가지는 것 방지).
 // 한 해의 마지막 패치는 24번으로 보고 연도 경계를 계산합니다.
-export function isRecentPatch(patch: string, latestPatch: string): boolean {
+export function isRecentPatch(patch: string, latestPatch: string, maxBack = 3): boolean {
   const [major, minor] = patchParts(patch);
   const [lMajor, lMinor] = patchParts(latestPatch);
   if (![major, minor, lMajor, lMinor].every(Number.isInteger)) return false;
   const index = (m: number, n: number) => m * 24 + n;
   const diff = index(lMajor, lMinor) - index(major, minor);
-  return diff >= 0 && diff <= 3;
+  return diff >= 0 && diff <= maxBack;
 }
 
 export function isEligible(game: IngestGame): boolean {

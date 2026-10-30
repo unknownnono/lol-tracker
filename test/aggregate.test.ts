@@ -106,3 +106,11 @@ describe('applySamples / pruneAgg', () => {
     expect(Object.keys(a.a).sort()).toEqual(['x2', 'x3', 'x4', 'x5']);
   });
 });
+
+describe('isRecentPatch 범위', () => {
+  it('maxBack으로 넓힐 수 있음', () => {
+    expect(isRecentPatch('16.9', '16.21')).toBe(false);
+    expect(isRecentPatch('16.9', '16.21', 12)).toBe(true);
+    expect(isRecentPatch('16.8', '16.21', 12)).toBe(false);
+  });
+});

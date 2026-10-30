@@ -4,3 +4,6 @@ node_modules/
 .env*.local
 npm-debug.log*
 *.tsbuildinfo
+
+# 수집 스크립트 로컬 캐시 (읽은 경기 id)
+scripts/.cache/

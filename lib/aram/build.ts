@@ -1,5 +1,6 @@
 // 누적값 → 추천 빌드 응답
 import { AGG_CATS, emptyAgg, type ChampAgg, type Pair, type Queue } from './aggregate';
+import { computeSkills, type SkillAgg } from './skills';
 import type { AramBuildResponse, BuildStat } from './types';
 
 export const LOW_SAMPLE = 30;
@@ -42,6 +43,7 @@ export function computeBuild(input: {
   prevPatch: string | null;
   current: ChampAgg | null;
   prev: ChampAgg | null;
+  skills?: SkillAgg | null;
 }): AramBuildResponse {
   let agg = input.current ?? emptyAgg();
   const mergedPatches: string[] = [];
@@ -61,5 +63,6 @@ export function computeBuild(input: {
     coreItems: topStats(agg.i, agg.g, 6),
     boots: topStats(agg.b, agg.g, 2),
     augments: input.queue === 2400 ? topStats(agg.a, agg.g, 10) : [],
+    skills: computeSkills(input.skills ?? null),
   };
 }

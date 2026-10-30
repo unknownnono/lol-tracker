@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "vitest run",
-    "push:lcu": "tsx --env-file=.env.local scripts/push-lcu-games.ts"
+    "push:lcu": "tsx --env-file=.env.local scripts/push-lcu-games.ts",
+    "collect:skills": "tsx --env-file=.env.local scripts/collect-aram-skills.ts"
   },
   "dependencies": {
     "next": "14.2.5",
