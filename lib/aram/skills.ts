@@ -7,7 +7,7 @@ export const SKILL_QUEUE = 450;
 // 스킬 순서는 패치 영향이 적어 패치를 나누지 않고 챔피언별 한 키에 쌓되, 약 반년(12패치) 안의 경기만 받습니다.
 export const SKILL_PATCH_WINDOW = 12;
 export const SEQ_LEVELS = 15; // 레벨별 순서는 15레벨까지
-const MIN_LEVELS = 9; // 이보다 일찍 끝난 판(스킬을 덜 찍은 판)은 빼기
+// 15레벨 전에 끝난 판은 순서가 덜 찍혀 있어 버립니다 (짧은 순서가 다른 순서로 따로 집계되는 것 방지)
 const SLOT = ['', 'Q', 'W', 'E', 'R'];
 
 export interface SkillAgg {
@@ -57,7 +57,7 @@ export function skillSamples(match: any, timeline: any): SkillSample[] {
   return (info.participants ?? []).flatMap((p: any) => {
     if (p.gameEndedInEarlySurrender) return [];
     const full = skillSequence(timeline, p.participantId);
-    if (full.length < MIN_LEVELS) return [];
+    if (full.length < SEQ_LEVELS) return [];
     const seq = full.slice(0, SEQ_LEVELS);
     return [{ championId: p.championId, win: !!p.win, seq, order: maxOrder(full) }];
   });
@@ -118,10 +118,12 @@ export const MIN_SKILL_GAMES = 3;
 
 export function computeSkills(agg: SkillAgg | null): SkillBuild | null {
   if (!agg || agg.g === 0) return null;
+  // 예전에 15레벨 전에 끝난 판까지 받던 때 쌓인 짧은 순서는 보여주지 않음
+  const full = Object.fromEntries(Object.entries(agg.q).filter(([k]) => k.length === SEQ_LEVELS));
   return {
     queue: SKILL_QUEUE,
     sampleSize: agg.g,
     orders: top(agg.m, agg.g, 3, MIN_SKILL_GAMES),
-    sequences: top(agg.q, agg.g, 3, MIN_SKILL_GAMES),
+    sequences: top(full, agg.g, 3, MIN_SKILL_GAMES),
   };
 }

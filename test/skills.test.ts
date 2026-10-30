@@ -41,8 +41,8 @@ describe('skillSequence / maxOrder', () => {
 
 describe('skillSamples', () => {
   const seq = 'QWEQQRQEQEREEWWWW';
-  it('15레벨까지 자르고, 조기 항복·짧은 기록 제외', () => {
-    const s = skillSamples(match(), timeline({ 1: seq, 2: 'QWEQ', 3: seq }));
+  it('15레벨까지 자르고, 조기 항복·15레벨 전에 끝난 판 제외', () => {
+    const s = skillSamples(match(), timeline({ 1: seq, 2: seq.slice(0, 14), 3: seq }));
     expect(s).toEqual([{ championId: 103, win: true, seq: seq.slice(0, 15), order: 'QEW' }]);
   });
   it('일반 칼바람이 아니거나 5분 미만이면 없음', () => {
@@ -52,19 +52,26 @@ describe('skillSamples', () => {
 });
 
 describe('누적·조회', () => {
-  it('챔피언·패치별로 쌓고 상위 순서를 계산 (3판 미만 순서는 숨김)', () => {
+  it('챔피언별로 쌓고 상위 순서를 계산 (3판 미만 순서는 숨김)', () => {
+    const A = 'QWEQQRQEQEREEWW';
+    const B = 'QWEEEREQEQRQQWW';
     const aggs = new Map();
     const s = (win: boolean, seq: string, order: string) => ({ championId: 103, win, seq, order });
-    applySkillSamples(aggs, [s(true, 'A', 'QEW'), s(false, 'A', 'QEW'), s(true, 'A', 'QEW'), s(true, 'B', 'EQW')]);
+    applySkillSamples(aggs, [s(true, A, 'QEW'), s(false, A, 'QEW'), s(true, A, 'QEW'), s(true, B, 'EQW')]);
     const agg = aggs.get(skillKey(103));
-    expect(agg).toMatchObject({ g: 4, w: 3, q: { A: [3, 2], B: [1, 1] }, m: { QEW: [3, 2], EQW: [1, 1] } });
+    expect(agg).toMatchObject({ g: 4, w: 3, q: { [A]: [3, 2], [B]: [1, 1] }, m: { QEW: [3, 2], EQW: [1, 1] } });
     expect(computeSkills(agg)).toEqual({
       queue: 450,
       sampleSize: 4,
       orders: [{ key: 'QEW', games: 3, winRate: 0.6667, pickRate: 0.75 }],
-      sequences: [{ key: 'A', games: 3, winRate: 0.6667, pickRate: 0.75 }],
+      sequences: [{ key: A, games: 3, winRate: 0.6667, pickRate: 0.75 }],
     });
     expect(computeSkills(null)).toBeNull();
+  });
+  it('예전에 쌓인 15칸 미만 순서는 숨김', () => {
+    const full = 'QWEQQRQEQEREEWW';
+    const s = computeSkills({ g: 8, w: 4, q: { [full]: [5, 3], [full.slice(0, 14)]: [3, 1] }, m: { QEW: [8, 4] } });
+    expect(s?.sequences.map((x) => x.key)).toEqual([full]);
   });
   it('합치기·정리', () => {
     const a = { ...emptySkillAgg(), g: 1, w: 1, q: { X: [1, 1] as [number, number] } };
