@@ -34,6 +34,21 @@ export interface SkillBuild {
   starts: BuildStat[]; // key "1055,2003,2003": 시작 1분 30초 안에 산 아이템 (정렬)
 }
 
+// GET /api/aram/champions 응답: 아수라장 챔피언 티어표 (보정 승률순). pickRate는 전체 경기 중 등장 비율
+export interface ChampionStat {
+  championId: number;
+  games: number;
+  winRate: number;
+  pickRate: number;
+  tier: 'S' | 'A' | 'B' | 'C' | 'D';
+}
+export interface ChampionTierResponse {
+  queue: 2400;
+  patches: string[];
+  games: number;
+  champions: ChampionStat[];
+}
+
 // POST /api/aram/ingest 요청·응답. 데스크톱 앱이 LCU 경기 상세를 이 형식으로 바꿔 보냅니다.
 export interface IngestParticipant {
   championId: number;
