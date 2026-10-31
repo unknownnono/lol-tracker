@@ -1,5 +1,6 @@
 // POST /api/aram/ingest 처리: 형식 검증 → 중복 제거 → 잠금 안에서 집계.
 import { aggKey, applySamples, isEligible, isRecentPatch, patchOf, pruneAgg, samplesFromIngest } from './aggregate';
+import { filterUnseenCombos, markCombosSeen } from './comboIngest';
 import { applyComboSamples, comboKey, loadCombos, pruneCombo, saveCombos } from './combos';
 import type { ItemClasses } from './items';
 import type { RedisLike } from './redis';
@@ -94,10 +95,13 @@ export async function ingestGames(
       const aggs = await loadAggs(redis, keys);
       applySamples(aggs, samples);
       for (const agg of aggs.values()) pruneAgg(agg);
-      // 증강 조합 (아수라장, 패치별)
-      const comboKeys = [...new Set(samples.filter((s) => s.queue === 2400).map((s) => comboKey(s.queue, s.patch)))];
-      const combos = await loadCombos(redis, comboKeys);
-      applyComboSamples(combos, samples);
+      // 증강 조합 (아수라장, 패치별). 전적 목록(/api/aram/combo-ingest)으로 먼저 센 사람은 빼고 셈
+      const comboCands = fresh
+        .filter((g) => g.queueId === 2400)
+        .flatMap((g) => samplesFromIngest(g, classes).map((s) => ({ gameId: g.gameId, championId: s.championId, s })));
+      const comboFresh = await filterUnseenCombos(redis, comboCands);
+      const combos = await loadCombos(redis, [...new Set(comboFresh.map((x) => comboKey(2400, x.s.patch)))]);
+      applyComboSamples(combos, comboFresh.map((x) => x.s));
       for (const c of combos.values()) pruneCombo(c);
       // 패치 등록을 먼저 합니다 (실패해도 집계 전이라 다시 보내면 그대로 복구됨).
       await registerPatches(redis, [...new Set(fresh.map((g) => patchOf(g.gameVersion)))]);
@@ -105,6 +109,7 @@ export async function ingestGames(
       await saveCombos(redis, combos);
       // 누적값을 저장한 뒤에 기록합니다 (저장 전에 실패하면 앱이 다시 보낼 수 있도록).
       await markGamesSeen(redis, fresh.map((g) => String(g.gameId)));
+      await markCombosSeen(redis, comboFresh);
     }
     return { accepted: fresh.length, duplicates, rejected };
   } finally {

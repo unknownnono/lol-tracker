@@ -1,7 +1,7 @@
-import { timingSafeEqual } from 'node:crypto';
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { patchOf } from '@/lib/aram/aggregate';
 import { ingestGames, parseIngestRequest } from '@/lib/aram/ingest';
+import { keyMatches, overIpLimit } from '@/lib/aram/ingestAuth';
 import { getItemClasses } from '@/lib/aram/items';
 import { upstash } from '@/lib/aram/redis';
 import { getLatestDdragonVersion } from '@/lib/riot';
@@ -9,22 +9,6 @@ import { getLatestDdragonVersion } from '@/lib/riot';
 export const config = { api: { bodyParser: { sizeLimit: '200kb' } } };
 
 const PER_IP_PER_MINUTE = 10;
-
-// 키가 앱 안에 들어 있어 빼낼 수 있으므로, IP별로 1분에 10번까지만 받습니다 (Upstash 명령 2개).
-async function overIpLimit(req: NextApiRequest): Promise<boolean> {
-  const forwarded = req.headers['x-forwarded-for'];
-  const ip = (Array.isArray(forwarded) ? forwarded[0] : forwarded)?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown';
-  const key = `rl:ingest:${ip}:${Math.floor(Date.now() / 60_000)}`;
-  const [count] = await upstash.pipe([['INCR', key], ['EXPIRE', key, 70]]);
-  return Number(count) > PER_IP_PER_MINUTE;
-}
-
-function keyMatches(given: unknown, expected: string): boolean {
-  if (typeof given !== 'string') return false;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -46,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    if (await overIpLimit(req)) {
+    if (await overIpLimit(req, 'ingest', PER_IP_PER_MINUTE)) {
       return res.status(429).json({ error: '요청이 너무 많습니다. 잠시 후 다시 보내세요.', retryAfter: 60 });
     }
     const version = await getLatestDdragonVersion();
