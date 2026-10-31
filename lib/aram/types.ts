@@ -49,6 +49,10 @@ export interface ChampionTierResponse {
   champions: ChampionStat[];
 }
 
+// GET /api/aram/combos — 같이 골랐을 때 좋은 증강 두 개 (lift: 두 증강 각자 승률 평균 대비 조합 승률 차이)
+export interface ComboStat { a: number; b: number; games: number; winRate: number; lift: number }
+export interface ComboResponse { queue: 2400; patches: string[]; combos: ComboStat[] }
+
 // POST /api/aram/ingest 요청·응답. 데스크톱 앱이 LCU 경기 상세를 이 형식으로 바꿔 보냅니다.
 export interface IngestParticipant {
   championId: number;
