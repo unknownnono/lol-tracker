@@ -18,7 +18,11 @@ export interface AramBuildResponse {
   coreItems: BuildStat[];
   boots: BuildStat[];
   augments: BuildStat[];
-  skills: SkillBuild | null; // 일반 칼바람(450) 기준 스킬 빌드 (아수라장은 Riot API가 막아서)
+  coreBuilds: BuildStat[]; // key "A>B>C": 완성 아이템 첫 3개 (칸 순서 ≈ 산 순서)
+  fourthItems: BuildStat[];
+  fifthItems: BuildStat[];
+  sixthItems: BuildStat[];
+  skills: SkillBuild | null; // 일반 칼바람(450) 기준 스킬 빌드·시작 아이템 (아수라장은 Riot API가 막아서)
 }
 
 // key: orders는 선마 순서("QEW"), sequences는 레벨별 순서("QWEQQRQEQEREEWW", 최대 15레벨)
@@ -27,6 +31,7 @@ export interface SkillBuild {
   sampleSize: number;
   orders: BuildStat[];
   sequences: BuildStat[];
+  starts: BuildStat[]; // key "1055,2003,2003": 시작 1분 30초 안에 산 아이템 (정렬)
 }
 
 // POST /api/aram/ingest 요청·응답. 데스크톱 앱이 LCU 경기 상세를 이 형식으로 바꿔 보냅니다.

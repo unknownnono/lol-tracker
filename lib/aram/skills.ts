@@ -15,8 +15,30 @@ export interface SkillAgg {
   w: number;
   q: Record<string, Pair>; // 레벨별 순서 (예: "QWEQQRQEQEREEWW")
   m: Record<string, Pair>; // 기본 스킬 선마 순서 (예: "QEW")
+  st?: Record<string, Pair>; // 시작 아이템 (예: "1055,2003,2003"). 예전 누적값에는 없을 수 있음
 }
-export interface SkillSample { championId: number; win: boolean; seq: string; order: string }
+export interface SkillSample { championId: number; win: boolean; seq: string; order: string; start: string | null }
+
+const START_WINDOW_MS = 90_000; // 시작 1분 30초 안에 산 아이템을 시작 아이템으로
+
+// 시작 아이템: 시작 직후 산 아이템에서 되돌리기·판매를 빼고 정렬한 목록 (없으면 null)
+export function startItems(timeline: any, participantId: number): string | null {
+  const events = (timeline?.info?.frames ?? [])
+    .flatMap((f: any) => f?.events ?? [])
+    .filter((e: any) => e?.participantId === participantId && (e.timestamp ?? Infinity) <= START_WINDOW_MS)
+    .sort((a: any, b: any) => (a.timestamp ?? 0) - (b.timestamp ?? 0));
+  const bag: number[] = [];
+  const drop = (id: number) => {
+    const i = bag.lastIndexOf(id);
+    if (i >= 0) bag.splice(i, 1);
+  };
+  for (const e of events) {
+    if (e.type === 'ITEM_PURCHASED' && e.itemId) bag.push(e.itemId);
+    else if (e.type === 'ITEM_UNDO' && e.beforeId) drop(e.beforeId);
+    else if (e.type === 'ITEM_SOLD' && e.itemId) drop(e.itemId);
+  }
+  return bag.length > 0 ? bag.sort((a, b) => a - b).join(',') : null;
+}
 
 export const emptySkillAgg = (): SkillAgg => ({ g: 0, w: 0, q: {}, m: {} });
 export const skillKey = (championId: number) => `aram:skill:${championId}`;
@@ -59,7 +81,7 @@ export function skillSamples(match: any, timeline: any): SkillSample[] {
     const full = skillSequence(timeline, p.participantId);
     if (full.length < SEQ_LEVELS) return [];
     const seq = full.slice(0, SEQ_LEVELS);
-    return [{ championId: p.championId, win: !!p.win, seq, order: maxOrder(full) }];
+    return [{ championId: p.championId, win: !!p.win, seq, order: maxOrder(full), start: startItems(timeline, p.participantId) }];
   });
 }
 
@@ -79,27 +101,30 @@ export function applySkillSamples(aggs: Map<string, SkillAgg>, samples: SkillSam
     if (s.win) agg.w += 1;
     bump(agg.q, s.seq, s.win);
     bump(agg.m, s.order, s.win);
+    if (s.start) bump((agg.st ??= {}), s.start, s.win);
   }
 }
 
 // 순서 종류가 너무 많아지면 한 판짜리를 지우고 상위 max개만 남김
 export function pruneSkillAgg(agg: SkillAgg, max = 40) {
-  const rec = agg.q;
-  if (Object.keys(rec).length <= max) return;
-  for (const [k, [g]] of Object.entries(rec)) if (g <= 1) delete rec[k];
-  const entries = Object.entries(rec).sort(([, [a]], [, [b]]) => b - a);
-  for (const [k] of entries.slice(max)) delete rec[k];
+  for (const rec of [agg.q, agg.st]) {
+    if (!rec || Object.keys(rec).length <= max) continue;
+    for (const [k, [g]] of Object.entries(rec)) if (g <= 1) delete rec[k];
+    const entries = Object.entries(rec).sort(([, [a]], [, [b]]) => b - a);
+    for (const [k] of entries.slice(max)) delete rec[k];
+  }
 }
 
 export function mergeSkillAggs(a: SkillAgg, b: SkillAgg): SkillAgg {
   const out = emptySkillAgg();
   out.g = a.g + b.g;
   out.w = a.w + b.w;
-  for (const cat of ['q', 'm'] as const) {
+  for (const cat of ['q', 'm', 'st'] as const) {
     for (const src of [a, b]) {
-      for (const [k, [g, w]] of Object.entries(src[cat])) {
-        const cur = out[cat][k] ?? [0, 0];
-        out[cat][k] = [cur[0] + g, cur[1] + w];
+      for (const [k, [g, w]] of Object.entries(src[cat] ?? {})) {
+        const rec = (out[cat] ??= {});
+        const cur = rec[k] ?? [0, 0];
+        rec[k] = [cur[0] + g, cur[1] + w];
       }
     }
   }
@@ -125,5 +150,6 @@ export function computeSkills(agg: SkillAgg | null): SkillBuild | null {
     sampleSize: agg.g,
     orders: top(agg.m, agg.g, 3, MIN_SKILL_GAMES),
     sequences: top(full, agg.g, 3, MIN_SKILL_GAMES),
+    starts: top(agg.st ?? {}, agg.g, 2, MIN_SKILL_GAMES),
   };
 }

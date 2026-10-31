@@ -14,9 +14,10 @@ export function mergeAggs(a: ChampAgg, b: ChampAgg): ChampAgg {
   out.w = a.w + b.w;
   for (const cat of AGG_CATS) {
     for (const src of [a, b]) {
-      for (const [k, [g, w]] of Object.entries(src[cat])) {
-        const cur = out[cat][k] ?? [0, 0];
-        out[cat][k] = [cur[0] + g, cur[1] + w];
+      for (const [k, [g, w]] of Object.entries(src[cat] ?? {})) {
+        const rec = (out[cat] ??= {});
+        const cur = rec[k] ?? [0, 0];
+        rec[k] = [cur[0] + g, cur[1] + w];
       }
     }
   }
@@ -63,6 +64,10 @@ export function computeBuild(input: {
     coreItems: topStats(agg.i, agg.g, 6),
     boots: topStats(agg.b, agg.g, 2),
     augments: input.queue === 2400 ? topStats(agg.a, agg.g, 10) : [],
+    coreBuilds: topStats(agg.c ?? {}, agg.g, 5),
+    fourthItems: topStats(agg.n4 ?? {}, agg.g, 3),
+    fifthItems: topStats(agg.n5 ?? {}, agg.g, 3),
+    sixthItems: topStats(agg.n6 ?? {}, agg.g, 3),
     skills: computeSkills(input.skills ?? null),
   };
 }

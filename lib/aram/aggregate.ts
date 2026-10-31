@@ -13,8 +13,13 @@ export interface ChampAgg {
   i: Record<string, Pair>; // 완성 아이템
   b: Record<string, Pair>; // 신발
   a: Record<string, Pair>; // 증강 (Mayhem)
+  // 아이템 빌드 순서: 아이템은 사면 앞 빈칸부터 들어가서 칸 순서 ≈ 산 순서. 예전 누적값에는 없을 수 있음
+  c?: Record<string, Pair>; // 완성 아이템 첫 3개 "A>B>C"
+  n4?: Record<string, Pair>; // 4번째 완성 아이템
+  n5?: Record<string, Pair>;
+  n6?: Record<string, Pair>;
 }
-export const AGG_CATS = ['r', 's', 'i', 'b', 'a'] as const;
+export const AGG_CATS = ['r', 's', 'i', 'b', 'a', 'c', 'n4', 'n5', 'n6'] as const;
 
 export interface Sample {
   queue: Queue;
@@ -23,7 +28,7 @@ export interface Sample {
   win: boolean;
   rune: string | null;
   spell: string;
-  items: number[];
+  items: number[]; // 완성 아이템, 칸 순서
   boots: number | null;
   augments: number[];
 }
@@ -31,7 +36,7 @@ export interface Sample {
 const MIN_GAME_SECONDS = 300;
 
 export function emptyAgg(): ChampAgg {
-  return { g: 0, w: 0, r: {}, s: {}, i: {}, b: {}, a: {} };
+  return { g: 0, w: 0, r: {}, s: {}, i: {}, b: {}, a: {}, c: {}, n4: {}, n5: {}, n6: {} };
 }
 
 export function aggKey(queue: Queue, patch: string, championId: number) {
@@ -108,6 +113,10 @@ export function applySamples(aggs: Map<string, ChampAgg>, samples: Sample[]) {
     for (const id of s.items) bump(agg.i, String(id), s.win);
     if (s.boots != null) bump(agg.b, String(s.boots), s.win);
     for (const id of s.augments) bump(agg.a, String(id), s.win);
+    if (s.items.length >= 3) bump((agg.c ??= {}), s.items.slice(0, 3).join('>'), s.win);
+    if (s.items[3] != null) bump((agg.n4 ??= {}), String(s.items[3]), s.win);
+    if (s.items[4] != null) bump((agg.n5 ??= {}), String(s.items[4]), s.win);
+    if (s.items[5] != null) bump((agg.n6 ??= {}), String(s.items[5]), s.win);
   }
 }
 
@@ -116,7 +125,7 @@ export function applySamples(aggs: Map<string, ChampAgg>, samples: Sample[]) {
 export function pruneAgg(agg: ChampAgg, max = 60) {
   for (const cat of AGG_CATS) {
     const rec = agg[cat];
-    if (Object.keys(rec).length <= max) continue;
+    if (!rec || Object.keys(rec).length <= max) continue;
     for (const [k, [g]] of Object.entries(rec)) if (g <= 1) delete rec[k];
     const entries = Object.entries(rec);
     if (entries.length <= max) continue;

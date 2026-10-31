@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  applySkillSamples, computeSkills, emptySkillAgg, maxOrder, mergeSkillAggs, pruneSkillAgg, skillKey, skillSamples, skillSequence,
+  startItems, applySkillSamples, computeSkills, emptySkillAgg, maxOrder, mergeSkillAggs, pruneSkillAgg, skillKey, skillSamples, skillSequence,
 } from '@/lib/aram/skills';
 
 const SLOT: Record<string, number> = { Q: 1, W: 2, E: 3, R: 4 };
@@ -43,7 +43,7 @@ describe('skillSamples', () => {
   const seq = 'QWEQQRQEQEREEWWWW';
   it('15레벨까지 자르고, 조기 항복·15레벨 전에 끝난 판 제외', () => {
     const s = skillSamples(match(), timeline({ 1: seq, 2: seq.slice(0, 14), 3: seq }));
-    expect(s).toEqual([{ championId: 103, win: true, seq: seq.slice(0, 15), order: 'QEW' }]);
+    expect(s).toEqual([{ championId: 103, win: true, seq: seq.slice(0, 15), order: 'QEW', start: null }]);
   });
   it('일반 칼바람이 아니거나 5분 미만이면 없음', () => {
     expect(skillSamples(match({ queueId: 420 }), timeline({ 1: seq }))).toEqual([]);
@@ -56,7 +56,7 @@ describe('누적·조회', () => {
     const A = 'QWEQQRQEQEREEWW';
     const B = 'QWEEEREQEQRQQWW';
     const aggs = new Map();
-    const s = (win: boolean, seq: string, order: string) => ({ championId: 103, win, seq, order });
+    const s = (win: boolean, seq: string, order: string) => ({ championId: 103, win, seq, order, start: '1055,2003' });
     applySkillSamples(aggs, [s(true, A, 'QEW'), s(false, A, 'QEW'), s(true, A, 'QEW'), s(true, B, 'EQW')]);
     const agg = aggs.get(skillKey(103));
     expect(agg).toMatchObject({ g: 4, w: 3, q: { [A]: [3, 2], [B]: [1, 1] }, m: { QEW: [3, 2], EQW: [1, 1] } });
@@ -65,6 +65,7 @@ describe('누적·조회', () => {
       sampleSize: 4,
       orders: [{ key: 'QEW', games: 3, winRate: 0.6667, pickRate: 0.75 }],
       sequences: [{ key: A, games: 3, winRate: 0.6667, pickRate: 0.75 }],
+      starts: [{ key: '1055,2003', games: 4, winRate: 0.75, pickRate: 1 }],
     });
     expect(computeSkills(null)).toBeNull();
   });
@@ -80,5 +81,22 @@ describe('누적·조회', () => {
     for (let i = 0; i < 50; i++) big.q[`s${i}`] = [i < 5 ? 3 : 1, 0];
     pruneSkillAgg(big, 40);
     expect(Object.keys(big.q)).toHaveLength(5);
+  });
+});
+
+describe('startItems', () => {
+  const tl = (events: any[]) => ({ info: { frames: [{ events }] } });
+  it('1분 30초 안에 산 아이템, 되돌리기·판매 빼고 정렬', () => {
+    const t = tl([
+      { type: 'ITEM_PURCHASED', participantId: 1, itemId: 2003, timestamp: 5000 },
+      { type: 'ITEM_PURCHASED', participantId: 1, itemId: 1055, timestamp: 3000 },
+      { type: 'ITEM_PURCHASED', participantId: 1, itemId: 1001, timestamp: 6000 },
+      { type: 'ITEM_UNDO', participantId: 1, beforeId: 1001, afterId: 0, timestamp: 7000 },
+      { type: 'ITEM_PURCHASED', participantId: 1, itemId: 2003, timestamp: 8000 },
+      { type: 'ITEM_PURCHASED', participantId: 1, itemId: 3006, timestamp: 200000 },
+      { type: 'ITEM_PURCHASED', participantId: 2, itemId: 1056, timestamp: 4000 },
+    ]);
+    expect(startItems(t, 1)).toBe('1055,2003,2003');
+    expect(startItems(t, 3)).toBeNull();
   });
 });
