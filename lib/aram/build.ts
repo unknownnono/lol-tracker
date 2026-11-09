@@ -69,5 +69,15 @@ export function computeBuild(input: {
     fifthItems: topStats(agg.n5 ?? {}, agg.g, 3),
     sixthItems: topStats(agg.n6 ?? {}, agg.g, 3),
     skills: computeSkills(input.skills ?? null),
+    ...(input.queue === 2400 && input.patch && input.prevPatch && input.current && input.prev && input.current.g >= LOW_SAMPLE && input.prev.g >= LOW_SAMPLE
+      ? {
+          patchChange: {
+            patch: input.patch,
+            prevPatch: input.prevPatch,
+            current: topStats(input.current.a, input.current.g, 30),
+            prev: topStats(input.prev.a, input.prev.g, 30),
+          },
+        }
+      : {}),
   };
 }

@@ -23,6 +23,8 @@ export interface AramBuildResponse {
   fifthItems: BuildStat[];
   sixthItems: BuildStat[];
   skills: SkillBuild | null; // 일반 칼바람(450) 기준 스킬 빌드·시작 아이템 (아수라장은 Riot API가 막아서)
+  // 아수라장: 최신 패치와 직전 패치 각각의 증강 성적 (두 패치 모두 표본이 충분할 때만) — 이번 패치에 오르고 내린 증강 보기용
+  patchChange?: { patch: string; prevPatch: string; current: BuildStat[]; prev: BuildStat[] };
 }
 
 // key: orders는 선마 순서("QEW"), sequences는 레벨별 순서("QWEQQRQEQEREEWW", 최대 15레벨)

@@ -60,3 +60,17 @@ describe('computeBuild', () => {
     expect(computeBuild({ ...base, queue: 2400, current: agg(40, 20, { a }), prev: null }).augments).toHaveLength(1);
   });
 });
+
+describe('이번 패치 변화', () => {
+  const base = { championId: 1, queue: 2400 as const, patch: '16.22', prevPatch: '16.21' };
+  const cur = { '7': [40, 28] as [number, number] };
+  const old = { '7': [60, 24] as [number, number] };
+  it('두 패치 모두 표본이 충분하면 패치별 증강 성적을 따로', () => {
+    const b = computeBuild({ ...base, current: agg(40, 20, { a: cur }), prev: agg(60, 30, { a: old }) });
+    expect(b.patchChange).toMatchObject({ patch: '16.22', prevPatch: '16.21', current: [{ key: '7', winRate: 0.7 }], prev: [{ key: '7', winRate: 0.4 }] });
+  });
+  it('한쪽이라도 적거나 일반 칼바람이면 없음', () => {
+    expect(computeBuild({ ...base, current: agg(10, 5, { a: cur }), prev: agg(60, 30, { a: old }) }).patchChange).toBeUndefined();
+    expect(computeBuild({ ...base, queue: 450, current: agg(40, 20, { a: cur }), prev: agg(60, 30, { a: old }) }).patchChange).toBeUndefined();
+  });
+});
