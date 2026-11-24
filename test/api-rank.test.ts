@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/riot', async (orig) => ({ ...(await orig<typeof import('@/lib/riot')>()), getLeagueEntries: vi.fn() }));
+vi.mock('@/lib/riot', async (orig) => ({ ...(await orig<typeof import('@/lib/riot')>()), getLeagueEntries: vi.fn(), getAccountByRiotId: vi.fn() }));
 vi.mock('@/lib/aram/redis', async () => {
   const { FakeRedis } = await import('@/test/fakeRedis');
   return { upstash: new FakeRedis() };
 });
 
-import { getLeagueEntries } from '@/lib/riot';
+import { getAccountByRiotId, getLeagueEntries } from '@/lib/riot';
 import handler from '@/pages/api/aram/rank';
 
 const KEY = 'test-ingest-key-1234567890';
@@ -23,13 +23,14 @@ function call(opts: { method?: string; key?: string; query?: Record<string, stri
   };
   const headers: Record<string, string> = { 'x-forwarded-for': `10.1.0.${Math.floor(Math.random() * 250)}` };
   if (opts.key !== undefined) headers['x-ingest-key'] = opts.key;
-  return handler({ method: opts.method ?? 'GET', headers, query: opts.query ?? { puuid: PUUID } } as any, res).then(() => res);
+  return handler({ method: opts.method ?? 'GET', headers, query: opts.query ?? { gameName: '침대에서 어흥', tagLine: 'KR1' } } as any, res).then(() => res);
 }
 
 describe('GET /api/aram/rank', () => {
   beforeEach(() => {
     vi.stubEnv('INGEST_KEY', KEY);
     vi.mocked(getLeagueEntries).mockReset();
+    vi.mocked(getAccountByRiotId).mockReset().mockResolvedValue({ puuid: PUUID, gameName: '침대에서 어흥', tagLine: 'KR1' } as any);
   });
   afterEach(() => vi.unstubAllEnvs());
 
@@ -38,9 +39,10 @@ describe('GET /api/aram/rank', () => {
     expect((await call({ key: 'wrong' })).statusCode).toBe(401);
     expect(getLeagueEntries).not.toHaveBeenCalled();
   });
-  it('puuid가 이상하면 400', async () => {
-    expect((await call({ key: KEY, query: { puuid: 'x/../y' } })).statusCode).toBe(400);
-    expect((await call({ key: KEY, query: { puuid: PUUID, other: '1' } })).statusCode).toBe(400);
+  it('닉네임·태그가 없거나 길거나 다른 값이 있으면 400', async () => {
+    expect((await call({ key: KEY, query: { gameName: '상대' } })).statusCode).toBe(400);
+    expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'x'.repeat(9) } })).statusCode).toBe(400);
+    expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'KR1', puuid: '1' } })).statusCode).toBe(400);
   });
   it('솔로·자유 랭크의 승·패', async () => {
     vi.mocked(getLeagueEntries).mockResolvedValue([
@@ -49,6 +51,7 @@ describe('GET /api/aram/rank', () => {
     const r = await call({ key: KEY });
     expect(r.statusCode).toBe(200);
     expect(r.body).toEqual({ solo: { tier: 'PLATINUM', division: 'III', lp: 0, wins: 14, losses: 11 }, flex: null });
+    expect(getAccountByRiotId).toHaveBeenCalledWith('침대에서 어흥', 'KR1', 'kr');
     expect(getLeagueEntries).toHaveBeenCalledWith(PUUID, 'kr');
   });
 });
