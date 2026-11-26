@@ -168,6 +168,17 @@ export async function getTopChampionMastery(puuid: string, platform: Platform, c
   return riotFetch<ChampionMastery[]>(url, 10 * 60 * 1000);
 }
 
+// 한 챔피언 숙련도 (안 해 본 챔피언이면 null)
+export async function getChampionMastery(puuid: string, championId: number, platform: Platform) {
+  const url = `https://${platform}.api.riotgames.com/lol/champion-mastery/v4/champion-masteries/by-puuid/${puuid}/by-champion/${championId}`;
+  try {
+    return await riotFetch<ChampionMastery>(url, 10 * 60 * 1000);
+  } catch (err) {
+    if (err instanceof RiotApiError && err.status === 404) return null;
+    throw err;
+  }
+}
+
 // 챔피언 ID(숫자) -> 챔피언 이름(이미지 파일명과 동일) 매핑을 만듭니다. 챔피언 목록은 패치마다 거의 안 바뀌므로 오래 캐싱합니다.
 export async function getChampionIdNameMap(version: string): Promise<Record<number, string>> {
   const cacheKey = `champion-map-${version}`;

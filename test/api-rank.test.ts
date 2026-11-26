@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('@/lib/riot', async (orig) => ({ ...(await orig<typeof import('@/lib/riot')>()), getLeagueEntries: vi.fn(), getAccountByRiotId: vi.fn() }));
+vi.mock('@/lib/riot', async (orig) => ({ ...(await orig<typeof import('@/lib/riot')>()), getLeagueEntries: vi.fn(), getAccountByRiotId: vi.fn(), getChampionMastery: vi.fn() }));
 vi.mock('@/lib/aram/redis', async () => {
   const { FakeRedis } = await import('@/test/fakeRedis');
   return { upstash: new FakeRedis() };
 });
 
-import { getAccountByRiotId, getLeagueEntries } from '@/lib/riot';
+import { getAccountByRiotId, getChampionMastery, getLeagueEntries } from '@/lib/riot';
 import handler from '@/pages/api/aram/rank';
 
 const KEY = 'test-ingest-key-1234567890';
@@ -43,6 +43,15 @@ describe('GET /api/aram/rank', () => {
     expect((await call({ key: KEY, query: { gameName: '상대' } })).statusCode).toBe(400);
     expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'x'.repeat(9) } })).statusCode).toBe(400);
     expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'KR1', puuid: '1' } })).statusCode).toBe(400);
+  });
+  it('champion을 주면 숙련도도, 안 해 봤으면 level 0', async () => {
+    vi.mocked(getLeagueEntries).mockResolvedValue([]);
+    vi.mocked(getChampionMastery).mockResolvedValueOnce({ championId: 103, championLevel: 7, championPoints: 123456 });
+    const r = await call({ key: KEY, query: { gameName: '상대', tagLine: 'KR1', champion: '103' } });
+    expect(r.body).toEqual({ solo: null, flex: null, mastery: { level: 7, points: 123456 } });
+    vi.mocked(getChampionMastery).mockResolvedValueOnce(null);
+    expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'KR1', champion: '103' } })).body.mastery).toEqual({ level: 0, points: 0 });
+    expect((await call({ key: KEY, query: { gameName: '상대', tagLine: 'KR1', champion: 'abc' } })).statusCode).toBe(400);
   });
   it('솔로·자유 랭크의 승·패', async () => {
     vi.mocked(getLeagueEntries).mockResolvedValue([
